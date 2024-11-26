@@ -32,7 +32,7 @@ class RestaurantViewModel: ViewModel() {
     var list by mutableStateOf(listOf<RestaurantInfo>())
     @SuppressLint("SuspiciousIndentation")
     private val _list= flow{
-        val columns=  Columns.raw(""" *, ${Table.FoodInfo.name}!inner ( "name","price","updated_at","isAvailable",foodCategory ) """.trimIndent())
+        val columns=  Columns.raw(""" *, ${Table.FoodInfo.name}!inner ( "name","price","updated_at","isAvailable","foodCategory","foodType") """.trimIndent())
         while (true) {
             emit(supabase.from(Table.RestaurantInfo.name)
                 .select(columns,filter).decodeList<RestaurantInfo>())
@@ -62,7 +62,7 @@ class RestaurantViewModel: ViewModel() {
 
 
     }
-    private  var filterList by mutableStateOf(listOf<Filter>())
+      var filterList by mutableStateOf(listOf<Filter>())
     init {
 
 
@@ -107,6 +107,14 @@ class RestaurantViewModel: ViewModel() {
                 4.0->gte("rating",4)
                 4.5->gte("rating",4.5)
             }
+
+         //   eq("${Table.FoodInfo.name}.foodType->>1","Tamil")
+//                filterList.filter { it.enabled }.forEach { key->
+//                    for(i in 1..10) {
+//
+//                    }
+//                }
+
 
             when(belowPrice){
                 30.0->lte("${Table.FoodInfo.name}.price",30.0)

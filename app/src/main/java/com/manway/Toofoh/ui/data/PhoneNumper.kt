@@ -52,7 +52,12 @@ fun String.toPhoneNumber(): PhoneNumber {
 @SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PhoneNumberField(initialField:String="",successButtonAction: () -> Unit, failureListener: () -> Unit) {
+fun PhoneNumberField(
+    initialField: String = "",
+    interaction: Boolean = false,
+    successButtonAction: () -> Unit,
+    failureListener: () -> Unit,
+) {
     val PhoneNumber = "Phone Number"
     var phoneNumber by remember { mutableStateOf(initialField) }
     var expanded by remember { mutableStateOf(false) }
@@ -103,7 +108,7 @@ fun PhoneNumberField(initialField:String="",successButtonAction: () -> Unit, fai
                         )
                     )
                 }
-                emit(findThePattern to response)
+                // emit(findThePattern to response)
             }
 
             delay(1000)
@@ -121,7 +126,7 @@ fun PhoneNumberField(initialField:String="",successButtonAction: () -> Unit, fai
             onValueChange = onPhoneNumberChanged,
             label = PhoneNumber,
             errorInfo = ErrorInfo(PhoneNumber, "Invalid Phone Number"),
-            errorState = ErrorState(isInvalid, true),
+            errorState = ErrorState(isInvalid, interaction),
             leadingIcon = {
                 Row(Modifier.padding(start = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                    // AsyncImage(selectedItem.imageUrl ?: "", contentDescription = null, modifier = Modifier.size(20.dp))
@@ -311,7 +316,10 @@ fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex
             errorState = ErrorState(true, false),
             readOnly = readOnly,
             leadingIcon = {
-                Row(Modifier.menuAnchor().padding(start = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier
+                        .menuAnchor()
+                        .padding(start = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                    // AsyncImage(selectedItem.imageUrl ?: "", contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(selectedItem.countryCode)
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)

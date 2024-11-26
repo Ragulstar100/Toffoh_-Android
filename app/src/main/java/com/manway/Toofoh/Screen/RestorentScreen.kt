@@ -1,12 +1,14 @@
 package com.manway.Toofoh.Screen
 
+import Ui.enums.Availability
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,23 +34,33 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -60,18 +73,25 @@ import androidx.compose.ui.unit.round
 import androidx.compose.ui.zIndex
 
 import com.manway.Toofoh.R
+import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.data.FoodCategory
 import com.manway.Toofoh.data.OrderInfo
 import com.manway.Toofoh.data.OrderItem
+import com.manway.Toofoh.data.OrderReciptScreen
+import com.manway.Toofoh.data.OrderStatus
+import com.manway.Toofoh.data.PaymentMethod
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.getImage
 import com.manway.Toofoh.dp.supabase
 import com.manway.toffoh.admin.data.FoodInfo
 import com.manway.toffoh.admin.data.RestaurantInfo
+import com.manway.toffoh.admin.data.ServiceArea
+import data.enums.Role
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import java.lang.reflect.Array.set
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -97,7 +117,7 @@ fun RestaurantScreen(){
     val estimatedDeliveryTime=30
     val  rating=3.5f
     val numberOfRatings=105
-    val foodList= (0..10).map { FoodInfo.initialFoodInfo.copy(id=it, foodCategory = listOf(FoodCategory.VEG,FoodCategory.NON_VEG).random(), name = "name$it", dishCategory = listOf("cat1","cat2","cat3","cat4").random(), availableQty = (5..18).random() ) }
+    val foodList= (0..10).map { FoodInfo.initialFoodInfo.copy(id=it, foodCategory = listOf(FoodCategory.VEG,FoodCategory.NON_VEG).random(), name = "name$it", dishCategory = listOf("cat1","cat2","cat3","cat4").random(), available_qty = (5..18).random() ) }
     var orderItems by remember {
         mutableStateOf(foodList.map {
             OrderItem(it.id.toString(),it.name,it.price,0)
@@ -113,8 +133,8 @@ fun RestaurantScreen(){
             }
         }
     }
-    AnimatedVisibility(!goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
-        Scaffold(bottomBar = {
+
+    AnimatedVisibility(!goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) { Scaffold(bottomBar = {
             val color=Color(0xFFEC407A)
             Column(Modifier.fillMaxWidth().background(Color(0xFFFDFDFD))) {
                 Text("Add items ${orderItems.map { it.quantity }.sum()}  cost${orderItems.map { it.price*it.quantity }.sum()}", style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center), modifier = Modifier.padding(horizontal = 40.dp).fillMaxWidth().background(color, MaterialTheme.shapes.large).padding(20.dp))
@@ -124,12 +144,7 @@ fun RestaurantScreen(){
                         .background(Color.LightGray.copy(0.25f), MaterialTheme.shapes.large)
                         .fillMaxWidth(0.70f), colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
                     Spacer(Modifier.width(30.dp))
-                    Column(
-                        Modifier
-                            .padding(5.dp)
-                            .onGloballyPositioned {
-                                menuOffset = it.localToWindow(Offset.Zero)
-                            }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.padding(5.dp).onGloballyPositioned { menuOffset = it.localToWindow(Offset.Zero) }, horizontalAlignment = Alignment.CenterHorizontally) {
                         IconButton({
                             openMenu = !openMenu
                         }) {
@@ -166,7 +181,7 @@ fun RestaurantScreen(){
                             items(itemsInCategory) { item ->
                                 Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(item.name)
-                                    Text(item.availableQty.toString())
+                                    Text(item.available_qty.toString())
                                 }
                             }
                         }
@@ -184,7 +199,7 @@ fun RestaurantScreen(){
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(rating.toString(), style = MaterialTheme.typography.titleMedium)
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                Icon(Icons.Default.Person, "Person")
+                                Icon(Icons.Default.Person, "Person", tint = MaterialTheme.colorScheme.primary)
                                 Text(numberOfRatings.toString(), style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -227,9 +242,9 @@ fun RestaurantScreen(){
                     }
                   //  Text(orderItems.filter { it.quantity>0 }.joinToString { "${it.name} x ${it.quantity}" })
                     foodList.forEach {
-                        it.FoodItem { id, count ->
+                        it.FoodItem { order->
                             orderItems = orderItems.map {
-                                if (id.toString() == it.id) it.copy(quantity = count) else it
+                                if (order.id.toString() == it.id) order else it
                             }
                         }
                     }
@@ -240,12 +255,13 @@ fun RestaurantScreen(){
 
             }
         }
+
     }
 
-@OptIn(ExperimentalFoundationApi::class)
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "MutableCollectionMutableState")
 @Composable
-fun RestaurantScreen(restaurantInfo: RestaurantInfo){
+fun RestaurantScreen(customerInfo: CustomerInfo,restaurantInfo: RestaurantInfo){
 
     restaurantInfo.apply {
     var menuOffset by remember {
@@ -263,6 +279,26 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
         mutableStateOf(listOf<FoodInfo>())
     }
 
+        var orderItems by remember { mutableStateOf(arrayListOf<OrderItem>()) }
+
+    val scope= rememberCoroutineScope()
+    var scaffoldState = rememberBottomSheetScaffoldState()
+    var openBottomSheet by remember {
+        mutableStateOf(false)
+    }
+    if(orderItems.filter { it.quantity>0 }.isNotEmpty()){
+        openBottomSheet=true;
+        scope.launch {
+            scaffoldState.bottomSheetState.expand()
+        }
+    }else{
+        openBottomSheet=false;
+    }
+
+    var search by remember {
+        mutableStateOf("")
+    }
+
         var _foodList= flow<List<FoodInfo>> {
             while (true){
                 emit(supabase.from(Table.FoodInfo.name).select{
@@ -274,16 +310,47 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
             }
         }
 
-            var orderItems by remember {
-        mutableStateOf(listOf<OrderItem>())
 
-    }
 
-    LaunchedEffect(key1 = restaurantInfo){
-        _foodList.collect{
-            foodList=it
+    LaunchedEffect(key1 =Unit){
+        while (true) {
+                _foodList.collect {
+                    foodList = it.filter {
+                        it.available_qty>0&&(it.isAvailable== Availability.Available)
+                    }
+
+                }
+                val tempList=ArrayList<OrderItem>()
+                tempList.addAll(foodList.map {
+                    OrderItem(it.id.toString(),it.name,it.price,9)
+                })
+                delay(1000L)
+
         }
+
     }
+
+       LaunchedEffect(key1 = foodList) {
+           orderItems =
+               java.util.ArrayList<OrderItem>().apply {
+                   addAll(orderItems)
+                   foodList.forEach {
+                       if (!orderItems.map { it.id }.contains(it.id.toString())) {
+                           add(OrderItem(it.id.toString(), it.name, it.price, 0))
+
+                       }
+                   }
+                   removeIf {
+                       !foodList.map { it.id.toString() }.contains(it.id)
+                   }
+                   //when update
+
+                   Log.e("OrderItems", (foodList.size).toString())
+
+               }
+       }
+
+
 
 
 
@@ -293,7 +360,7 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
 //    val  rating=3.5f
 //    val numberOfRatings=105
 
-   //val foodList= (0..10).map { FoodInfo.initialFoodInfo.copy(id=it, foodCategory = listOf(FoodCategory.VEG,FoodCategory.NON_VEG).random(), name = "name$it", dishCategory = listOf("cat1","cat2","cat3","cat4").random(), availableQty = (5..18).random() ) }
+   //val foodList= (0..10).map { FoodInfo.initialFoodInfo.copy(id=it, foodCategory = listOf(FoodCategory.VEG,FoodCategory.NON_VEG).random(), name = "name$it", dishCategory = listOf("cat1","cat2","cat3","cat4").random(), available_qty = (5..18).random() ) }
 
     AnimatedVisibility(goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
         Column(Modifier.fillMaxSize()) {
@@ -306,34 +373,31 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
         }
     }
     AnimatedVisibility(!goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
-        Scaffold(bottomBar = {
-            val color=Color(0xFFEC407A)
-            Column(Modifier.fillMaxWidth().background(Color(0xFFFDFDFD))) {
-                Text("Add items ${orderItems.map { it.quantity }.sum()}  cost${orderItems.map { it.price*it.quantity }.sum()}", style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center), modifier = Modifier.padding(horizontal = 40.dp).fillMaxWidth().background(color, MaterialTheme.shapes.large).padding(20.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.width(25.dp))
-                    TextField(value = "", onValueChange = {}, trailingIcon = { IconButton({}) { Icon(Icons.Default.Search, "", Modifier.size(35.dp)) } }, modifier = Modifier
-                        .background(Color.LightGray.copy(0.25f), MaterialTheme.shapes.large)
-                        .fillMaxWidth(0.70f), colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
-                    Spacer(Modifier.width(30.dp))
-                    Column(
-                        Modifier
-                            .padding(5.dp)
-                            .onGloballyPositioned {
-                                menuOffset = it.localToWindow(Offset.Zero)
-                            }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        IconButton({
-                            openMenu = !openMenu
-                        }) {
-                            Icon(painter = painterResource(R.drawable.menu), "", Modifier.size(35.dp))
-                        }
-                        Text("Menu", style = MaterialTheme.typography.bodySmall)
-                    }
+        BottomSheetScaffold( {
+         //Bottom Sheet Content
+         if(openBottomSheet) if(orderItems.isNotEmpty()) {
+                var openRecptScreen by remember {
+                    mutableStateOf(false)
                 }
-                Spacer(Modifier.height(15.dp))
-            }
-        }, topBar = { Row(Modifier.background(Color.White).fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.Absolute.SpaceAround, verticalAlignment =Alignment.CenterVertically ) {
-            if (scroll.value > 320){
+               Column(Modifier.fillMaxWidth()){
+
+              if(openRecptScreen) OrderReceiptScreen2(customerInfo,foodList,orderItems.filter { it.quantity>0 })
+
+               Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),horizontalArrangement = Arrangement.SpaceBetween,verticalAlignment = Alignment.CenterVertically) {
+                   Text("Added items ${orderItems.map { it.quantity }.sum()}  cost${orderItems.map { it.price * it.quantity }.sum()}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), modifier = Modifier.padding(horizontal = 20.dp))
+                   TextButton({
+                       openRecptScreen=!openRecptScreen
+                   }){
+                       Text(if(!openRecptScreen)"Proceed" else "Close")
+                   }
+               }
+               }
+          }
+        }, sheetSwipeEnabled = false,
+            sheetContainerColor = Color.White,
+            sheetPeekHeight = 0.dp, scaffoldState = scaffoldState, topBar = {
+            Row(Modifier.background(Color.White).fillMaxWidth().height(30.dp), horizontalArrangement = Arrangement.Absolute.SpaceAround, verticalAlignment =Alignment.CenterVertically ) {
+            if (scroll.value > 700){
                 Text(name, style = MaterialTheme.typography.titleLarge)
                 IconButton({
                     goToMore=true
@@ -358,7 +422,7 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
                             items(itemsInCategory) { item ->
                                 Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(item.name)
-                                    Text(item.availableQty.toString())
+                                    Text(item.available_qty.toString())
                                 }
                             }
                         }
@@ -367,64 +431,119 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
 
                 }
 
-                Column(Modifier.verticalScroll(scroll).padding(top = 65.dp, start = 15.dp, end = 10.dp, bottom = 130.dp).fillMaxSize().background(Color.LightGray.copy(0.35f), MaterialTheme.shapes.extraLarge)) {
+                Column(Modifier.padding(top = 45.dp, start = 15.dp, end = 10.dp, bottom = 70.dp).fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.extraLarge)) {
                     Spacer(Modifier.height(20.dp))
                     //Title
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
-                        Spacer(Modifier.fillMaxWidth(0.6f))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(rating.toString(), style = MaterialTheme.typography.titleMedium)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                Icon(Icons.Default.Person, "Person")
-                                Text(numberOfRatings.toString(), style = MaterialTheme.typography.bodySmall)
+
+                    Column(Modifier.fillMaxHeight(0.90f).verticalScroll(scroll).fillMaxWidth().padding(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(restaurantInfo.name, style = MaterialTheme.typography.titleLarge)
+                        //Rating
+                        val decimal = restaurantInfo.rating - Math.floor(restaurantInfo.rating)
+                        Row(Modifier) {
+                            Text(restaurantInfo.rating.toString(), style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.width(10.dp))
+                            for (i in 1..Math.floor(restaurantInfo.rating).toInt()) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    "",
+                                    tint = Color.Yellow,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                if (i == Math.floor(restaurantInfo.rating).toInt() && decimal != 0.0) Icon(
+                                    painterResource(R.drawable.half_star),
+                                    "",
+                                    tint = Color.Yellow,
+                                    modifier = Modifier.size(10.dp)
+                                )
                             }
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            Icon(Icons.Default.Person, "Person")
+                            Text(numberOfRatings.toString(), style = MaterialTheme.typography.bodySmall)
+                        }
+                        //cuisine
+                        LazyRow(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(50.dp).padding(end = 15.dp)) {
+                            stickyHeader {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.background(Color(0xFFEBE9EB))
+                                ) {
+                                    Spacer(Modifier.width(15.dp))
+                                    Icon(
+                                        painter = painterResource(R.drawable.timer),
+                                        "Timer",
+                                        Modifier
+                                            .width(30.dp)
+                                            .padding(5.dp)
+                                    )
+                                    Text(
+                                        "$estimatedDeliveryTime min",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier.padding(vertical = 10.dp)
+                                    )
+                                    Spacer(Modifier.width(20.dp))
+                                }
+                            }
+                            item {
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    cuisine.joinToString(","),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Spacer(Modifier.width(30.dp))
+                            }
+
+                        }
+
+                        foodList.forEach {
+                            it.FoodItem { order ->
+                                orderItems = arrayListOf<OrderItem>().apply {
+                                    addAll(orderItems.map {
+                                        if (order.id == it.id) order else it
+                                    })
+                                }
+
+                            }
+                        }
+
                     }
 
-
-
-                    //cuisine
-                    LazyRow(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(50.dp).padding(end = 15.dp)) {
-                        stickyHeader {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.background(Color(0xFFEBE9EB))
-                            ) {
-                                Spacer(Modifier.width(15.dp))
-                                Icon(
-                                    painter = painterResource(R.drawable.timer),
-                                    "Timer",
-                                    Modifier
-                                        .width(30.dp)
-                                        .padding(5.dp)
-                                )
-                                Text(
-                                    "$estimatedDeliveryTime min",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.padding(vertical = 10.dp)
-                                )
-                                Spacer(Modifier.width(20.dp))
-                            }
-                        }
-                        item {
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                cuisine.joinToString(","),
-                                style = MaterialTheme.typography.bodyLarge
+                    val color=Color(0xFFEC407A)
+                    Spacer(Modifier.height(15.dp))
+                    Column(Modifier.fillMaxWidth().background(Color(0xFFFDFDFD))) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(Modifier.width(25.dp))
+                            OutlinedTextField(search, { search = it }, placeholder = { Text("Search Your Food Or Hotel", color = Color.LightGray, style = MaterialTheme.typography.bodySmall) }, leadingIcon = { Icon(Icons.Default.Search, "Search", Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary) }, shape = MaterialTheme.shapes.small,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.primary
+                                ),
+                                maxLines = 2,
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.scale(0.80f).fillMaxWidth(0.75f).height(50.dp)
                             )
                             Spacer(Modifier.width(30.dp))
-                        }
-
-                    }
-                    //  Text(orderItems.filter { it.quantity>0 }.joinToString { "${it.name} x ${it.quantity}" })
-                    foodList.forEach {
-                        it.FoodItem { id, count ->
-                            orderItems = orderItems.map {
-                                if (id.toString() == it.id) it.copy(quantity = count) else it
+                            Column(
+                                Modifier
+                                    .padding(5.dp)
+                                    .onGloballyPositioned {
+                                        menuOffset = it.localToWindow(Offset.Zero)
+                                    }, horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton({
+                                    openMenu = !openMenu
+                                }) {
+                                    Icon(painter = painterResource(R.drawable.menu), "", Modifier.size(35.dp))
+                                }
+                                Text("Menu", style = MaterialTheme.typography.bodySmall)
                             }
                         }
+                        Spacer(Modifier.height(15.dp))
                     }
+
+
+
+                    //  Text(orderItems.filter { it.quantity>0 }.joinToString { "${it.name} x ${it.quantity}" })
+
 
                 }
 
@@ -435,10 +554,8 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
         }
 }
 
-
-
     @Composable
-    fun FoodInfo.FoodItem(orderCountChange:(Int?,Int)->Unit){
+    fun FoodInfo.FoodItem(orderCountChange:(OrderItem)->Unit){
         Column(
             Modifier
                 .padding(horizontal = 0.dp)
@@ -455,7 +572,19 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
             var orderCount by remember {
                 mutableStateOf(0)
             }
-            BoxWithConstraints(Modifier.padding(3.dp).fillMaxWidth().height(200.dp).background(Color.White, MaterialTheme.shapes.small)) {
+
+            LaunchedEffect(key1 = this@FoodItem){
+                orderCount=Math.min(orderCount,available_qty)
+                orderCountChange(OrderItem(id.toString(),name,price,Math.min(orderCount,available_qty)))
+
+            }
+
+
+            LaunchedEffect(key1 = orderCount){
+                orderCountChange(OrderItem(id.toString(),name,price,orderCount))
+            }
+
+            BoxWithConstraints(Modifier.padding(3.dp).fillMaxWidth().height(250.dp).background(Color.White, MaterialTheme.shapes.small)) {
 
                 supabase.getImage(imageUrl,Modifier.absoluteOffset(maxWidth.minus(160.dp), 10.dp).clip(MaterialTheme.shapes.medium).size(140.dp), ContentScale.FillBounds)
 
@@ -464,39 +593,115 @@ fun RestaurantScreen(restaurantInfo: RestaurantInfo){
 //                    .clip(MaterialTheme.shapes.medium)
 //                    .size(140.dp), contentScale = ContentScale.FillBounds)
 
-                Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.absoluteOffset(x=20.dp,y=10.dp))
-                Text(price.toString(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.absoluteOffset(x=20.dp,y=40.dp))
-                Text(description, style = MaterialTheme.typography.bodyMedium, maxLines = 3, modifier = Modifier
-                    .width(225.dp)
-                    .absoluteOffset(x = 20.dp, y = 60.dp))
-                Text(dishCategory?:"Loading", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.absoluteOffset(x=20.dp,y=maxHeight.minus(60.dp)))
-                Text(foodCategory.name, style = MaterialTheme.typography.titleMedium, color = if(foodCategory==FoodCategory.VEG) Color.Green else Color.Red, modifier = Modifier.absoluteOffset(x=70.dp,y=40.dp))
+                Text(name,color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.absoluteOffset(x=20.dp,y=10.dp))
+                Text(price.toString(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.absoluteOffset(x=20.dp,y=40.dp))
+                Text(foodType.subList(0,2).joinToString(","), color = Color.LightGray, style = MaterialTheme.typography.bodySmall, maxLines = 3, modifier = Modifier.width(225.dp).absoluteOffset(x = 20.dp, y = 60.dp))
+                Text(dishCategory?:"Loading", style = MaterialTheme.typography.bodySmall, modifier = Modifier.absoluteOffset(x=20.dp,y=maxHeight.minus(60.dp)))
+                Text( description?:"Loading", style = MaterialTheme.typography.bodySmall, maxLines = 3, modifier = Modifier.absoluteOffset(x=20.dp,y=maxHeight.minus(140.dp)).width(240.dp))
+//                Text( "More", style = MaterialTheme.typography.bodySmall.copy(fontSize =9.sp), modifier = Modifier.absoluteOffset(x=260.dp,y=maxHeight.minus(80.dp)).width(240.dp).clickable {
+//
+//                })
+                Text(foodCategory.name, style = MaterialTheme.typography.bodySmall, color = if(foodCategory==FoodCategory.VEG) Color.Green else Color.Red, modifier = Modifier.absoluteOffset(x=70.dp,y=40.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.absoluteOffset(x=20.dp,y=maxHeight.minus(40.dp))) {
-                    Text(rating.toString(), style = MaterialTheme.typography.bodyLarge)
+                    Text(rating.toString(), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.width(10.dp))
-                    Icon(Icons.Default.Person, "Person")
+                    Icon(Icons.Default.Person, "Person",tint = MaterialTheme.colorScheme.primary)
                     Text(numberOfRatings.toString(), style = MaterialTheme.typography.bodySmall)
                 }
 
                 //Add Order
-                val orderLimit=10
-                val color=Color(0xFFEC407A)
-                Row(
-                    Modifier
-                        .absoluteOffset(x = maxWidth.minus(145.dp), y = 130.dp)
-                        .background(if (orderCount == 0 || orderCount == orderLimit) color else Color.White, MaterialTheme.shapes.medium)
+                val orderLimit=available_qty
+                val color=MaterialTheme.colorScheme.primary
+                Row(Modifier.scale(0.85f)
+                        .absoluteOffset(x = maxWidth.minus(100.dp), y = 190.dp)
+                        .background(if (orderCount == 0 ) color else Color.White, MaterialTheme.shapes.medium)
+                    .border(1.dp,if (orderCount != 0 ) color else Color.White,MaterialTheme.shapes.medium)
                         .width(120.dp)
                         .height(40.dp)
-                        .padding(5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
-                    if(orderCount>0&&orderLimit!=orderCount)     TextButton({ orderCount-- }, enabled =orderCount>0&&orderLimit!=orderCount ) { Text("-") }
-                    Text(if(orderCount==0) "Add Order" else if(orderCount==orderLimit) "Max" else orderCount.toString(), style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center), color =if(orderCount==0||orderCount==orderLimit) Color.Unspecified else color , modifier = Modifier.clickable { if(orderCount==0) orderCount=1 else if(orderCount==orderLimit) orderCount=orderLimit-1 })
-                    if(orderCount<orderLimit&&orderCount!=0) TextButton({ orderCount++ }, enabled =orderCount<orderLimit&&orderCount!=0 ) { Text("+") }
+                        .padding(5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    if(orderCount>0&&orderLimit!=orderCount)     TextButton({ orderCount--;}, enabled =orderCount>0&&orderLimit!=orderCount ) { Text("-") }
+                    Text(if(orderCount==0) "Add Order" else if(orderCount==orderLimit) "Max" else orderCount.toString(), style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), color =if(orderCount==0) Color.Unspecified else color , modifier = Modifier.clickable { if(orderCount==0){ orderCount=1; }else if(orderCount==orderLimit){ orderCount=orderLimit-1; }})
+                    if(orderCount<orderLimit&&orderCount!=0) TextButton({ orderCount++; }, enabled =orderCount<orderLimit&&orderCount!=0 ) { Text("+") }
                 }
+                HorizontalDivider(Modifier.fillMaxWidth().absoluteOffset(y=maxHeight.minus(10.dp)))
             }
-            orderCountChange(id,orderCount)
+
         }
 
     }
+
+
+
+
+@Composable
+fun OrderReceiptScreen2(customerInfo: CustomerInfo,foodInfos: List<FoodInfo>,orderItems:List<OrderItem>){
+
+    val scope= rememberCoroutineScope()
+
+    Column(Modifier.fillMaxWidth().fillMaxHeight(0.90f)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.75f).background(Color.Transparent).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(20.dp))
+            orderItems.forEach {
+                Row(
+                    Modifier.border(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.shapes.extraSmall
+                    ).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(it.name, Modifier.width(150.dp))
+                    Text(it.price.toString(), Modifier.width(50.dp), maxLines = 1)
+                    Text(
+                        "x${it.quantity}",
+                        Modifier.width(35.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1
+                    )
+                    Text((it.total().toString()), Modifier.width(60.dp), maxLines = 1)
+                }
+                Spacer(Modifier.height(10.dp))
+
+            }
+        }
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+            Text(orderItems.map { it.total() }.sum().toString(),modifier = Modifier.padding(end = 20.dp), style = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Right ))
+            Button(onClick = {
+                scope.launch {
+
+                        supabase.from("public","OrderInfo").insert(
+                            OrderInfo(
+                                customer_channel_id = customerInfo.channelId,
+                                role = Role.Customer,
+                                customer_name = customerInfo.name,
+                                customer_address = customerInfo.address[0],
+                                customer_phone_number = customerInfo.phoneNumber,
+                                order_items = orderItems,
+                                order_total = orderItems.map { it.total() }.sum(),
+                                order_status = OrderStatus.ACCEPTED,
+                                payment_method = PaymentMethod.CASH_ON_DELIVERY,
+                            )
+                        )
+                        orderItems.forEach {
+                            val foodInfo=foodInfos.find {food-> food.id.toString()==it.id }
+                            foodInfo?.let { food->
+                                supabase.from(Table.FoodInfo.name).update({
+                                    set("available_qty",food.available_qty- it.quantity)
+                                }) {
+                                    filter {
+                                        eq("id", it.id)
+                                    }
+                                }
+                            }
+                        }
+
+
+                }
+            }){
+                Text("Place Order")
+            }
+        }
+    }
+}
 
 
 

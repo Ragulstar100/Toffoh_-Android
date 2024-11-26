@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.play.services.auth)
+    implementation(libs.androidx.lifecycle.runtime.compose.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -60,10 +62,14 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
+    //Google Login
+    implementation ("com.google.firebase:firebase-auth-ktx:23.1.0")
+    implementation ("com.google.android.gms:play-services-auth:21.2.0")
+
     //Android
     implementation("androidx.navigation:navigation-compose:2.5.3")
     implementation ("io.coil-kt:coil-compose:2.6.0")
-        implementation("androidx.compose.ui:ui-text-google-fonts:1.4.3")
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.4.3")
 
     //supabase
 //    implementation ("org.slf4j:slf4j-api:2.0.16")

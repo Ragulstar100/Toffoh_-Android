@@ -143,36 +143,6 @@ data class  OrderInfo(
                     }
             }
 
-            AnimatedVisibility(subScreen==restorentPicker){
-                Column(Modifier.clip(RoundedCornerShape(2)).padding(vertical = 5.dp).background(Color.White, RoundedCornerShape(2)).width(450.dp).fillMaxHeight().padding(vertical = 5.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        IconButton({
-                            subScreen=main
-                        }){
-                            Icon(Icons.Default.Close,"Close")
-                        }
-                    }
-                    restaurant.list.forEach {
-                        Row(Modifier.clickable {
-                            restaurantInfo=it
-                            subScreen=foodPicker
-                        }.padding(3.dp).fillMaxWidth().border(1.dp, Color.LightGray).padding(5.dp)) {
-                            Text(it.name)
-                            Text(it.address.toString(), maxLines = 1)
-                            Text(it.address.pincode, maxLines = 1)
-                        }
-                    }
-
-                }
-            }
-
-            AnimatedVisibility(subScreen==foodPicker){
-                restaurantInfo?.let {
-                    OrderReciptScreen(it,orderInfo){
-                        orderInfo=it
-                    }
-                }
-            }
 
             AnimatedVisibility(subScreen == customerPicker) {
                 Column(Modifier.clip(RoundedCornerShape(2)).padding(vertical = 5.dp).background(Color.White, RoundedCornerShape(2)).width(450.dp).fillMaxHeight().padding(vertical = 5.dp)) {
@@ -270,7 +240,7 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
                 //Platform Code
                 // AsyncImage(customerInfo.profileUrl ?: "", "", Modifier.padding(15.dp).size(50.dp).clip(CircleShape))
                 Text(
-                    restaurantInfo.name ?: "",
+                    restaurantInfo.name,
                     Modifier.padding(20.dp).fillMaxWidth(0.75f),
                     fontSize = 20.sp,
                     textAlign = TextAlign.Center

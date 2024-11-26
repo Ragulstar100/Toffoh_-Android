@@ -5,12 +5,8 @@ import Ui.enums.Availability
 import android.annotation.SuppressLint
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 
 import androidx.compose.material3.*
 import androidx.compose.material3.ButtonDefaults
@@ -24,15 +20,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.manway.Toofoh.dp.CouldFunction
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.manway.Toofoh.ViewModel.CustomerViewModel
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
+import com.manway.Toofoh.ui.data.InternetListener
 import com.manway.toffoh.admin.data.ServiceArea
 
 import com.manway.toffoh.admin.ui.MyOutlinedTextField
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -46,7 +44,7 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
 
     companion object{
         // val (id_error,created_at_error,channelId_error,profileUrl_error,email_error,phoneNumber_error,name_error,foodCategory_error,address_error,others_error) = listOf(0 to "id",1 to "created_at",2 to "channelId",3 to "profileUrl",4 to "email",5 to "phoneNumber",6 to "name",7 to "foodCategory",8 to "address",9 to "others")
-        val initialCustomerInfo= CustomerInfo(null, null,null,null,"", PhoneNumber("+91","000000000" ), "", FoodCategory.VEG, listOf(
+        val initialCustomerInfo= CustomerInfo(null, null,null,null,"", PhoneNumber("+91","" ), "", FoodCategory.VEG, listOf(
             Address("","","")
         ), hashMapOf("none" to "none"))
     }
@@ -69,79 +67,85 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
     @SuppressLint("CoroutineCreationDuringComposition")
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    fun profileInfo(colseAction:(Boolean)->Unit){
-        var errorList by remember {
-            mutableStateOf((0..9).map{
-                "none$it"
-            })
-        }
+    fun profileInfo(colseAction:(Boolean)->Unit) {
+
+        var customer = viewModel<CustomerViewModel>()
+
+
         var open by remember {
             mutableStateOf(false)
         }
-        var scope= rememberCoroutineScope()
+        var scope = rememberCoroutineScope()
 
 
         var customerInfo by remember {
             mutableStateOf(this)
         }
 
+
         var listServiceArea by remember {
             mutableStateOf(listOf<ServiceArea>())
         }
-        var _listServiceArea= flow {
-            while (true){
-                emit( supabase.postgrest.from(Table.ServiceArea.name).select().decodeList<ServiceArea>())
+        var _listServiceArea = flow {
+            while (true) {
+                emit(
+                    supabase.postgrest.from(Table.ServiceArea.name).select()
+                        .decodeList<ServiceArea>()
+                )
                 delay(1000L)
             }
         }
 
         scope.launch {
             _listServiceArea.collect {
-                listServiceArea =it
+                listServiceArea = it
             }
+        }
+
+        var connection by remember {
+            mutableStateOf(true)
+        }
+
+        if(!connection){
+            Dialog({}) {
+                Text("check internet connection")
+            }
+        }
+
+        customer.connectionCheck=object : InternetListener {
+            override fun internet(availability:Boolean) {
+                connection=availability
+            }
+
+            override fun other(e: Exception) {
+
+            }
+
         }
 
 
         CustomerInfoScope(customerInfo) {
 
             customerInfo.let {
-
-                scope.launch {
-                    errorList = supabase.postgrest.rpc(
-                        CouldFunction.customerInfoValidate.first,
-                        mapOf(CouldFunction.customerInfoValidate.second[0] to customerInfo)
-                    ).decodeList<String>()
-
-                }
-            }
+               val errorList = customer.feed(it).errorList
 
 
-
-
-                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
 
                     Spacer(Modifier.height(50.dp))
 
-                      //  AsyncImage(profileUrl,"",Modifier.clip(CircleShape).size(100.dp))
+                    //  AsyncImage(profileUrl,"",Modifier.clip(CircleShape).size(100.dp))
 
-                    val emaichips = remember { mutableStateOf(listOf(ChipData("Email", true), ChipData("Phone Number", false))) }
-                    var emailChip by remember { mutableStateOf(ChipData("Email", true)) }
-                    var emailBackup by remember {
-                        mutableStateOf(email?:"")
-                    }
-//                    ChipGroup(Modifier.width(300.dp), emaichips, {
-//                        emailChip = it
-//                        if (it.label == "Email") customerInfo = customerInfo.copy(email = emailBackup) else customerInfo = customerInfo.copy(email = null)
-//                    }) {
-//                        Text(it.label, Modifier.background(if (it.isChecked) Color.LightGray.copy(0.75f) else Color.Unspecified, RoundedCornerShape(0)).border(1.dp, Color.LightGray.copy(0.75f), RoundedCornerShape(0)).padding(8.dp).width(100.dp))
-//                    }
 
-                    email?.let {
-                        MyOutlinedTextField(emailBackup, {
-                            emailBackup = it
-                            customerInfo = customerInfo.copy(email = emailBackup)
-                        }, "Email", errorList, 4, interact = false, readOnly =true)
-                    }
+                    Text(
+                        email ?: phoneNumber.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
                     var phoneNumberBackup by remember {
                         mutableStateOf(phoneNumber)
@@ -150,18 +154,19 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                     Spacer(Modifier.height(10.dp))
 
 
-                    Text(errorList.toString(), Modifier.width(300.dp))
+                    if (email != null) PhoneNumberField(phoneNumberBackup, errorList, 5) {
+                        customerInfo = customerInfo.copy(phoneNumber = it)
+                    }
 
-                    Text(errorList[5])
-
-                    PhoneNumberField(phoneNumberBackup.phoneNumber,email==null,errorList[5].isEmpty(),{
-                        customerInfo=customerInfo.copy(phoneNumber =it.toPhoneNumber())
-                    },{
-                        customerInfo=customerInfo.copy(phoneNumber = "".toPhoneNumber())
-                    })
 
                     Spacer(Modifier.height(10.dp))
-                    MyOutlinedTextField(name, { customerInfo = customerInfo.copy(name = it) }, "Name", errorList, 6)
+                    MyOutlinedTextField(
+                        name,
+                        { customerInfo = customerInfo.copy(name = it) },
+                        "Name",
+                        errorList,
+                        6
+                    )
 
                     Spacer(Modifier.height(10.dp))
                     val chips = remember {
@@ -172,20 +177,50 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                             )
                         )
                     }
-                    var chip by remember { mutableStateOf(ChipData(FoodCategory.VEG.name, true)) }
-                    ChipGroup(Modifier.width(300.dp), chips, onCheckedChange = { _chip ->
-                        chip = _chip;
-                        if (_chip.isChecked) customerInfo.copy(foodCategory = if(FoodCategory.VEG.name==_chip.label) FoodCategory.VEG else FoodCategory.NON_VEG)
-                    }) {
-                        Text(
-                            it.label,
-                            Modifier.background(
-                                if (it.isChecked) Color.LightGray.copy(0.75f) else Color.Unspecified,
-                                RoundedCornerShape(0)
-                            ).border(1.dp, Color.LightGray.copy(0.75f), RoundedCornerShape(0)).padding(8.dp)
-                                .width(100.dp)
-                        )
+
+
+
+                    Row(
+                        Modifier.width(280.dp).border(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary,
+                            shape = MaterialTheme.shapes.small
+                        ),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.height(50.dp)
+                        ) {
+                            RadioButton(foodCategory == FoodCategory.VEG, {
+                                customerInfo = customerInfo.copy(foodCategory = FoodCategory.VEG)
+                            })
+                            Text(
+                                "VEG",
+                                modifier = Modifier.background(Color.Transparent).padding(10.dp)
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.height(50.dp)
+                        ) {
+                            RadioButton(foodCategory == FoodCategory.NON_VEG, {
+                                customerInfo =
+                                    customerInfo.copy(foodCategory = FoodCategory.NON_VEG)
+                            })
+                            Text(
+                                "NON VEG",
+                                modifier = Modifier.background(Color.White)
+                            )
+                        }
                     }
+
+                    errorList.filterIndexed { i, it -> !listOf(4,8).contains(i) }
+                        .forEachIndexed { i, it ->
+                            Text("$i $it")
+                        }
+
 
                     //Address
 
@@ -200,50 +235,50 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                     }
                     Spacer(Modifier.height(20.dp))
 
-                    HorizontalPager(pagerState, Modifier.width(300.dp)) {
-                        var address = remember { mutableStateOf(addresses.value[it]) }
-                        Column(Modifier.width(400.dp).background(Color.Unspecified,MaterialTheme.shapes.medium).padding(25.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(Modifier.width(200.dp),horizontalArrangement = Arrangement.SpaceBetween) {
-                                IconButton({
-                                    scope.launch {
-                                        pagerState.scrollToPage(it - 1)
-                                    }
-                                }, enabled = (it > 0)) {
-                                    Icon(Icons.Default.KeyboardArrowLeft, "")
-                                }
-                                Text("Address${it + 1}")
-                                IconButton({
-                                    scope.launch {
-                                        pagerState.scrollToPage(it + 1)
-                                    }
-                                }, enabled = (it < addresses.value.size - 1)) {
-                                    Icon(Icons.Default.KeyboardArrowRight, "")
-                                }
-                            }
-//
-//                            AddressField(address, trailIconAddress = {
+//                    HorizontalPager(pagerState, Modifier.width(300.dp)) {
+//                        var address = remember { mutableStateOf(addresses.value[it]) }
+//                        Column(Modifier.width(400.dp).background(Color.Unspecified,MaterialTheme.shapes.medium).padding(25.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+//                            Row(Modifier.width(200.dp),horizontalArrangement = Arrangement.SpaceBetween) {
 //                                IconButton({
-//                                    addresses.add(Address("", "", ""))
-//                                }) {
-//                                    Icon(Icons.Default.Add, "")
+//                                    scope.launch {
+//                                        pagerState.scrollToPage(it - 1)
+//                                    }
+//                                }, enabled = (it > 0)) {
+//                                    Icon(Icons.Default.KeyboardArrowLeft, "")
 //                                }
-//                            }, trailIconGeolocation = {
+//                                Text("Address${it + 1}")
 //                                IconButton({
-//                                    addresses.delete(it)
-//                                }, enabled = (addresses.value.size > 1)) {
-//                                    Icon(Icons.Default.Delete, "")
+//                                    scope.launch {
+//                                        pagerState.scrollToPage(it + 1)
+//                                    }
+//                                }, enabled = (it < addresses.value.size - 1)) {
+//                                    Icon(Icons.Default.KeyboardArrowRight, "")
 //                                }
 //                            }
-//                            )
+////
+////                            AddressField(address, trailIconAddress = {
+////                                IconButton({
+////                                    addresses.add(Address("", "", ""))
+////                                }) {
+////                                    Icon(Icons.Default.Add, "")
+////                                }
+////                            }, trailIconGeolocation = {
+////                                IconButton({
+////                                    addresses.delete(it)
+////                                }, enabled = (addresses.value.size > 1)) {
+////                                    Icon(Icons.Default.Delete, "")
+////                                }
+////                            }
+////                            )
+//
+//
+//                        }
+//                        addresses.update(it, address.value)
+//                        customerInfo = customerInfo.copy(address = addresses.value)
+//                    }
 
-
-                        }
-                        addresses.update(it, address.value)
-                        customerInfo = customerInfo.copy(address = addresses.value)
-                    }
-                    if(addresses.value.map { listServiceArea.map { it.pincode.toString() }.contains(it.pincode) }.contains(false)) Text("Enter Pin code Not Available")
-
-                    else  if (!errorList.mapIndexed { i,it-> if(i!=4) it.isEmpty() else true ; }.contains(false)) Row(
+                    if (errorList.filterIndexed { i, it -> listOf(4).contains(i) }
+                            .map { it.isEmpty() }.contains(false)) Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
@@ -258,47 +293,12 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                         Spacer(Modifier.width(100.dp).height(50.dp))
                     }
                 }
+            }
         }
     }
+
 }
 
-//@OptIn(SupabaseExperimental::class)
-//@Composable
-//fun CustomerInfoItemView(){
-//    val scope= rememberCoroutineScope()
-//    var dlg by remember {
-//        mutableStateOf(false)
-//    }
-//    Scaffold(floatingActionButton = {
-//        FloatingActionButton({
-//            dlg=true
-//        },Modifier.size(100.dp)){
-//            Icon(Icons.Default.Add,"")
-//        }
-//    }) {
-//        Column(Modifier.fillMaxWidth()) {
-//            var customerInfoList by remember {
-//                mutableStateOf(listOf<CustomerInfo>())
-//            }
-//            scope.launch {
-//                customerInfoList = supabase.postgrest.from(Table.CustomerInfo.name).select().decodeList<CustomerInfo>()
-//            }
-//            customerInfoList.forEach {
-//                it.itemView()
-//            }
-//            var open by remember {
-//                mutableStateOf(true)
-//            }
-//            Dialog("Add CustomerInfo",{
-//                CustomerInfo.initialCustomerInfo.profileInfo{
-//                    open=it
-//                }
-//            },open)
-//        }
-//
-//    }
-//
-//}
 
 @Composable
 fun CustomerInfoScope(customerInfo: CustomerInfo, scope: @Composable CustomerInfo.()->Unit){

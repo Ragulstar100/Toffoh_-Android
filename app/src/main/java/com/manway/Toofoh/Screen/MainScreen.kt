@@ -1,8 +1,10 @@
 package Screen
 
 import Ui.data.Address
+import Ui.data.Filter
 import Ui.enums.Availability
 import android.annotation.SuppressLint
+import android.widget.Toast
 import com.manway.Toofoh.ViewModel.FoodViewModel
 import com.manway.Toofoh.ViewModel.RestaurantViewModel
 import androidx.compose.animation.AnimatedVisibility
@@ -16,13 +18,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +47,26 @@ import com.manway.Toofoh.ui.RatingFilter
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.dp
+import androidx.core.graphics.set
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.manway.Toofoh.ViewModel.CommonFoodViewModel
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.delay
+import java.util.*
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 //#f97a7b
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -61,6 +85,8 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
     var address by remember {
         mutableStateOf<Address?>(null)
     }
+
+
 
     val restorent = viewModel<RestaurantViewModel>()
     restorent.search(searchField)
@@ -94,13 +120,14 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
 
 
 
+
     val scope= rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     var showLocationPicker by remember {
         mutableStateOf(false)
     }
     var showFilter by remember {
-        mutableStateOf(true)
+        mutableStateOf(false)
     }
 
     LaunchedEffect(Unit) {
@@ -120,16 +147,129 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
                address=it
                showLocationPicker=false
            }
-        }, sheetPeekHeight = 0.dp) {
+
+        val (priceRange,starRating,cuisine)=listOf("Price Range","Star Rating","Cuisine")
+
+
+        var tab by remember {
+            mutableStateOf(priceRange)
+        }
+
+
+        if(showFilter) {
+            Column(Modifier.fillMaxWidth().height(450.dp).padding(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(priceRange,Modifier.clickable { tab=priceRange }.width(80.dp).border(1.dp,if(tab!=priceRange) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+                    Text(starRating,Modifier.clickable { tab=starRating }.width(80.dp).border(1.dp,if(tab!=starRating) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+                    Text(cuisine,Modifier.clickable { tab=cuisine }.width(80.dp).border(1.dp,if(tab!=cuisine) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+                }
+                when(tab){
+                    starRating->{
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(aboveThreeStar==-1.0, {
+                                restorent.aboveTheStar=-1.0
+                                aboveThreeStar=-1.0
+                            })
+                            Text("None", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(aboveThreeStar==3.0, {
+                                restorent.aboveTheStar=3.0
+                                aboveThreeStar=3.0
+                            })
+                            Text("3 Star Above", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(aboveThreeStar==4.0, {
+                                restorent.aboveTheStar=4.0
+                                aboveThreeStar=4.0
+                            })
+                            Text("4 Star Above", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(aboveThreeStar==4.5, {
+                                restorent.aboveTheStar=4.5
+                                aboveThreeStar=4.5
+                            })
+                            Text("4.5 Star Above", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    priceRange->{
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(belowPrice==Double.MAX_VALUE, {
+                                restorent.belowPrice=Double.MAX_VALUE
+                                belowPrice=Double.MAX_VALUE
+                            })
+                            Text("None", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(belowPrice==30.0, {
+                                restorent.belowPrice=30.0
+                                belowPrice=30.0
+                            })
+                            Text("30 Rs Above", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(belowPrice==100.0, {
+                                restorent.belowPrice=100.0
+                                belowPrice=100.0
+                            })
+                            Text("100 Rs Above", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(belowPrice==300.0, {
+                                restorent.belowPrice=300.0
+                                belowPrice=300.0
+                            })
+                            Text("300 Rs Above", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+
+
+
+                    }
+                    cuisine->{
+                        val cuisineList= listOf("Latin American", "Fusion", "British", "Vegan", "North American", "African", "Caribbean","Chinese", "Italian", "Japanese","Vietnamese","French","Vegetarian","German","Spanish","Korean","Mexican","Indian","Thai","Greek","Tamil","South American","Mediterranean","Middle Eastern","dairy","mine")
+                        var cuisineSelected by remember {
+                            mutableStateOf(cuisineList.map { Filter("${Table.FoodInfo.name}.foodType",it,false) })
+                        }
+                        restorent.filterList=cuisineSelected.filter { it.enabled }
+
+                        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                            cuisineSelected.forEachIndexed {i, item ->
+                                Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Checkbox(item.enabled, {
+                                        cuisineSelected = cuisineSelected.mapIndexed { j, it ->
+                                            if (i == j) it.copy(enabled = !it.enabled) else it
+                                        }
+                                    })
+                                    Text(item.value,style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+
+                    }
+                }
+
+
+            }
+        }
+
+
+    }, sheetPeekHeight = 0.dp) {
 
         var switchSearch by remember {
             mutableStateOf(false)
         }
 
         AnimatedVisibility(switchSearch){
-            FoodGrid({
-                switchSearch=false
-            }){
+            FoodGrid({ switchSearch = false }, restorentPickListner){
                 searchField=it
                 switchSearch=false
             }
@@ -178,7 +318,12 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
 
                         //Search
                         Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
-                        AssistChip({ showFilter = true },border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp,40.dp), tint = MaterialTheme.colorScheme.primary) },)
+                        AssistChip({
+                            showFilter = true;
+                            scope.launch {
+                                scaffoldState.bottomSheetState.expand()
+                            }
+                                   },border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp,40.dp), tint = MaterialTheme.colorScheme.primary) },)
                         Spacer(Modifier.height(10.dp))
                         AssistChip({ switchSearch = true }, { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) { if (searchField.isEmpty()) Text("Search Your Dishes", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) else Text(searchField) } },
                             modifier = Modifier.fillMaxWidth(.80f).height(40.dp).padding(horizontal = 20.dp),
@@ -264,78 +409,7 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
 
                 }
 
-                //Bottom Sheet Filter
-                item{
-                    val (priceRange,starRating,cuisine)=listOf("Price Range","Star Rating","Cuisine")
 
-
-                    var tab by remember {
-                        mutableStateOf(priceRange)
-                    }
-
-
-                    if(showFilter) {
-                        Column(Modifier.fillMaxWidth().height(450.dp).padding(10.dp)) {
-                           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(priceRange,Modifier.clickable { tab=priceRange }.width(80.dp).border(1.dp,if(tab!=priceRange) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-                            Text(starRating,Modifier.clickable { tab=starRating }.width(80.dp).border(1.dp,if(tab!=starRating) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-                            Text(cuisine,Modifier.clickable { tab=cuisine }.width(80.dp).border(1.dp,if(tab!=cuisine) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-                           }
-                            when(tab){
-                                starRating->{
-                                   Row(verticalAlignment = Alignment.CenterVertically) {
-                                       RadioButton(aboveThreeStar==3.0, {
-                                           restorent.aboveTheStar=3.0
-                                           aboveThreeStar=3.0
-                                       })
-                                       Text("3 Star Above", style = MaterialTheme.typography.bodyMedium)
-                                   }
-                                   Row(verticalAlignment = Alignment.CenterVertically) {
-                                       RadioButton(aboveThreeStar==4.0, {
-                                           restorent.aboveTheStar=4.0
-                                           aboveThreeStar=4.0
-                                       })
-                                       Text("4 Star Above", style = MaterialTheme.typography.bodyMedium)
-                                   }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(aboveThreeStar==4.5, {
-                                            restorent.aboveTheStar=4.5
-                                            aboveThreeStar=4.5
-                                        })
-                                        Text("4.5 Star Above", style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                }
-                                priceRange->{
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(belowPrice==30.0, {
-                                            restorent.belowPrice=30.0
-                                            belowPrice=30.0
-                                        })
-                                        Text("3 Star Above", style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(aboveThreeStar==4.0, {
-                                            restorent.aboveTheStar=4.0
-                                            aboveThreeStar=4.0
-                                        })
-                                        Text("4 Star Above", style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(aboveThreeStar==4.5, {
-                                            restorent.aboveTheStar=4.5
-                                            aboveThreeStar=4.5
-                                        })
-                                        Text("4.5 Star Above", style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                }
-                                cuisine->Text("4.5 Star Above")
-                            }
-
-
-                        }
-                    }
-
-                }
 
                 //Restorer Item
                 item {
@@ -352,80 +426,7 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
 
 
 
-        //Filter
-//      if(showFilter)  Dialog({}) {
-//          Column(Modifier.width(450.dp).background(Color.White)) {
-//              Row {
-//                  IconButton({
-//                      showFilter=false
-//                  }) {
-//                      Icon(Icons.Default.Close,"Close Action")
-//                  }
-//
-//              }
-//
-//
-//
-//              var cuisineFilter by remember {
-//                  mutableStateOf(listOf<String>())
-//              }
-//
-//              LazyColumn(Modifier.padding(25.dp)) {
-//
-//
-//                 // star rating
-//                  val options = listOf(-1.0, 3.0, 4.0, 4.5)
-//                  val optionLabels = listOf("none", "3.0+", "4.0+", "4.5+")
-//                  val priceOptions=listOf(Double.MAX_VALUE,30.0,100.0,300.0)
-//                  val priceLabels=listOf("none","30","100","300")
-//
-//
-//                // Star range
-//                 item {
-//                     Text("Rating")
-//                     RatingFilter(optionLabels=optionLabels,options=options,selectedRating = aboveThreeStar) {
-//                         aboveThreeStar=it
-//                         restorent.aboveTheStar=it
-//                     }
-//
-//                 }
-//               //Price range
-//               item {
-//                   Text("Price Range")
-//                   RatingFilter(optionLabels=priceLabels,options=priceOptions,selectedRating = belowPrice) {
-//                       belowPrice=it
-//                       restorent.belowPrice=it
-//                   }
-//               }
-//
-////               //Cuisine
-////               item {
-////                   Text("Select Your Cuisine")
-////               }
-////
-////                   val cuisineGroupedItems = restorent.list.groupBy { it.cuisine }
-////
-////                                     cuisineGroupedItems.forEach { (category, itemsInCategory) ->
-////                      item {
-////                          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-////                              Text("$category", Modifier.padding(5.dp), style = MaterialTheme.typography.titleMedium)
-////                              Text("${itemsInCategory.size}", Modifier.padding(5.dp), style = MaterialTheme.typography.titleMedium)
-////                          }
-////                      }
-//////                      items(itemsInCategory) { item ->
-//////                          Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-//////                              Text(item.name)
-//////                              Text(item.availableQty.toString())
-//////                          }
-//////                      }
-////                  }
-//
-//
-//
-//              }
-//
-//          }
-//        }
+
 
 
     }
@@ -636,7 +637,6 @@ fun customerItemView(restaurant: RestaurantInfo,restaurantPickListner:(Restauran
 }
 
 @Composable
-@Preview
 fun customerItemView() {
     val restaurant=RestaurantInfo.initialRestaurantInfo.copy(name ="Hello" )
     Card(modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
@@ -715,39 +715,263 @@ fun customerItemView() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun FoodGrid(closeAction: () -> kotlin.Unit,pickFood:(String)->Unit) {
-    var list by remember {
-        mutableStateOf(listOf<CommonFoodInfo>())
-    }
+fun FoodGrid(closeAction: () -> Unit,restorentPickListner:(RestaurantInfo)->Unit,pickFood:(String)->Unit) {
+    var list by remember { mutableStateOf(listOf<CommonFoodInfo>()) }
+    var restaurant=viewModel<RestaurantViewModel>()
+    var commonFood=viewModel<CommonFoodViewModel>()
+
     LaunchedEffect(key1 = true) {
         list = supabase.postgrest.from(Table.CommonFoodInfo.name).select().decodeList()
     }
+
     Column(Modifier.background(MaterialTheme.colorScheme.primaryContainer).fillMaxSize()) {
         var search by remember { mutableStateOf("") }
         Spacer(Modifier.height(25.dp))
         Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
             Spacer(Modifier.width(10.dp))
-            OutlinedTextField(search,{search=it}, leadingIcon = { Icon(Icons.Default.Search,"Search",Modifier.size(30.dp),tint = MaterialTheme.colorScheme.primary) }, shape = MaterialTheme.shapes.medium, colors = TextFieldDefaults.colors(focusedContainerColor = Color.White,unfocusedContainerColor = Color.White, focusedIndicatorColor = Color.Transparent,unfocusedIndicatorColor = Color.Transparent ), maxLines =2, textStyle =MaterialTheme.typography.bodySmall , modifier = Modifier.fillMaxWidth(0.75f).height(50.dp))
+
+            OutlinedTextField(
+                search,
+                { search = it },
+                placeholder = {
+                    Text(
+                        "Search Your Food Or Hotel",
+                        color = Color.LightGray,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        "Search",
+                        Modifier.size(30.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                shape = MaterialTheme.shapes.small,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.primary
+                ),
+                maxLines = 2,
+                textStyle = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.scale(0.80f).fillMaxWidth(0.75f).height(50.dp)
+            )
 
             Spacer(Modifier.width(10.dp))
-            IconButton({closeAction()}){
-                Icon(Icons.Default.Close,"Close Action")
+            IconButton({ closeAction() }) {
+                Icon(Icons.Default.Close, "Close Action")
             }
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3), // 2 columns in the grid
-            modifier = Modifier.fillMaxHeight()
-        ) {
-            items(list.filter { java.util.regex.Pattern.compile(search, java.util.regex.Pattern.CASE_INSENSITIVE).matcher(it.name).find() }) { foodInfo ->
-                supabase.getImage(
-                    foodInfo.imageUrl,
-                    Modifier.size(100.dp).padding(5.dp),
-                    ContentScale.FillHeight
-                )
-            }
+        var foodOn by remember {
+            mutableStateOf(true)
         }
+
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Food", Modifier.clickable { foodOn = !foodOn; }.width(80.dp).border(1.dp, if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+            Text("Hotel", Modifier.clickable { foodOn=false }.width(80.dp).border(1.dp, if (!foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+        }
+
+       if(foodOn)  LazyColumn {
+           item {
+               FlowRow(Modifier.padding(10.dp).fillMaxWidth(), maxItemsInEachRow = 3) {
+                    commonFood.list.filter { Pattern.compile(search).matcher(it.name).find() }.forEach {
+                        Card({
+                            pickFood(it.name)
+                        },shape = MaterialTheme.shapes.medium,elevation = CardDefaults.cardElevation(4.dp), modifier = Modifier.fillMaxWidth(.33f).height(100.dp).padding(vertical = 5.dp, horizontal =20.dp)) {
+                            supabase.getImage(
+                                it.imageUrl,
+                                Modifier.clip(MaterialTheme.shapes.extraSmall).fillMaxSize(),
+                                ContentScale.Crop
+                            )
+                          //  Text(it.name)
+                        }
+                    }
+               }
+           }
+       }
+
+      if(!foodOn)  LazyColumn {
+            item {
+            restaurant.unchangedList.filter { Pattern.compile(search).matcher(it.name).find() }.forEach {
+                Row(Modifier.fillMaxWidth().padding(5.dp).clickable {
+                    restorentPickListner(it)
+                }) {
+                    supabase.getImage(
+                        it.imageUrl,
+                        Modifier.clip(MaterialTheme.shapes.extraSmall).size(100.dp),
+                        ContentScale.FillBounds
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(it.name, style = MaterialTheme.typography.bodySmall)
+                        //Rating
+                        val decimal = it.rating - Math.floor(it.rating)
+                        Row(Modifier) {
+                            Text(it.rating.toString(), style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.width(10.dp))
+                            for (i in 1..Math.floor(it.rating).toInt()) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    "",
+                                    tint = Color.Yellow,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                if (i == Math.floor(it.rating).toInt() && decimal != 0.0) Icon(
+                                    painterResource(R.drawable.half_star),
+                                    "",
+                                    tint = Color.Yellow,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                            }
+                        }
+
+                    }
+
+                }
+            }
+                }
+
+        }
+
+
+
     }
 }
+
+///** probulem with this */
+//@Composable
+//fun Clock(modifier: Modifier = Modifier) {
+//    var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
+//
+//    LaunchedEffect(key1 = Unit) {
+//        while (true) {
+//            delay(1000) // Update every second
+//            currentTime = Calendar.getInstance()
+//        }
+//    }
+//
+//    Canvas(modifier = modifier.size(200.dp)) {
+//        val centerX = size.width / 2
+//        val centerY = size.height / 2
+//        val radius = size.minDimension / 2 - 20.dp.toPx()
+//
+//        // Draw clock face
+//        drawCircle(Color.LightGray, radius, center = Offset(centerX, centerY))
+//
+//        // Draw hour hand
+//        val hourAngle = (currentTime.get(Calendar.HOUR) * 30 + currentTime.get(Calendar.MINUTE) / 2) * PI / 180
+//        drawLine(
+//            Color.Black,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.5f * cos(hourAngle)).toFloat(), centerY + (radius * 0.5f * sin(hourAngle)).toFloat()),
+//            strokeWidth = 6.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//
+//        // Draw minute hand
+//        val minuteAngle = currentTime.get(Calendar.MINUTE) * 6 * PI / 180
+//        drawLine(
+//            Color.Black,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.7f * cos(minuteAngle)).toFloat(), centerY + (radius * 0.7f * sin(minuteAngle)).toFloat()),
+//            strokeWidth = 4.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//
+//        // Draw second hand
+//        val secondAngle = currentTime.get(Calendar.SECOND) * 6 * PI / 180
+//        drawLine(
+//            Color.Red,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.9f * cos(secondAngle)).toFloat(), centerY + (radius * 0.9f * sin(secondAngle)).toFloat()),
+//            strokeWidth = 2.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//    }
+//}
+//
+//@Composable
+//fun ClockIcon(modifier: Modifier = Modifier,hour: Int = 12, minute: Int = 0, second: Int = 0) {
+//    Canvas(modifier = modifier.size(200.dp).rotate(-45.0f)) {
+//        val centerX = size.width / 2
+//        val centerY = size.height / 2
+//        val radius = size.minDimension / 2 - 20.dp.toPx()
+//
+//        // Draw clock face
+//        drawCircle(Color.Black, radius, center = Offset(centerX, centerY), style = Stroke(width = 1.dp.toPx()))
+//
+//        // Draw hour hand
+//        val hourAngle = (((hour-1) % 12 + (minute-7.5) / 60f) * 30 * PI / 180) // Adjust hour hand based on minutes
+//        drawLine(
+//            Color.Black,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.5f * cos(hourAngle)).toFloat(), centerY + (radius * 0.5f * sin(hourAngle)).toFloat()),
+//            strokeWidth = 2.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//
+//        // Draw minute hand
+//        val minuteAngle = ((minute-10) * 6 * PI / 180)
+//        drawLine(
+//            Color.Black,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.7f * cos(minuteAngle)).toFloat(), centerY + (radius * 0.7f * sin(minuteAngle)).toFloat()),
+//            strokeWidth = 2.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//
+//        // Draw second hand (optional)
+//        if (second != 0) {
+//            val secondAngle = (second * 6 * PI / 180)
+//            drawLine(
+//                Color.Red,
+//                Offset(centerX, centerY),
+//                Offset(centerX + (radius * 0.9f * cos(secondAngle)).toFloat(), centerY + (radius * 0.9f * sin(secondAngle)).toFloat()),
+//                strokeWidth = 2.dp.toPx(),
+//                cap = StrokeCap.Round
+//            )
+//        }
+//    }
+//}
+//
+//@Composable
+//fun ClockIconMinutes(modifier: Modifier = Modifier, minute: Int = 0) {
+//    Canvas(modifier = modifier.size(200.dp).rotate(-45.0f)) {
+//        val centerX = size.width / 2
+//        val centerY = size.height / 2
+//        val radius = size.minDimension / 2 - 20.dp.toPx()
+//
+//        // Draw clock face
+//        drawCircle(Color.Black, radius, center = Offset(centerX, centerY), style = Stroke(width = 1.dp.toPx()))
+//
+//        // Draw hour hand
+//        val hourAngle = Math.toRadians(-50.0)
+//        drawLine(
+//            Color.Black,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.5f * cos(hourAngle)).toFloat(), centerY + (radius * 0.5f * sin(hourAngle)).toFloat()),
+//            strokeWidth = 2.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//
+//        // Draw minute hand
+//        val minuteAngle = ((minute-10) * 6 * PI / 180)
+//        drawLine(
+//            Color.Black,
+//            Offset(centerX, centerY),
+//            Offset(centerX + (radius * 0.7f * cos(minuteAngle)).toFloat(), centerY + (radius * 0.7f * sin(minuteAngle)).toFloat()),
+//            strokeWidth = 2.dp.toPx(),
+//            cap = StrokeCap.Round
+//        )
+//
+//    }
+//}
+

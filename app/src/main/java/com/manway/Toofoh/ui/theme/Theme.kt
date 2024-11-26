@@ -34,7 +34,11 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
-private val MyColorScheme = lightColorScheme(primary = Color(0xFFFf97a7b))
+private val MyColorScheme = lightColorScheme(
+    primary = Color(0xFFFf97a7b),
+    primaryContainer = Color.White,
+    error = Color.Blue
+)
 
 @Composable
 fun MyApplicationTheme(
