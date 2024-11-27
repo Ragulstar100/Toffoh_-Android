@@ -20,12 +20,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 
-class CustomerViewModel(): ViewModel() {
+class CustomerViewModel : ViewModel() {
     var list by mutableStateOf(listOf<CustomerInfo>())
     private var customerInfo: CustomerInfo?=null
 
     var errorList by mutableStateOf((0..15).map { "none$it" })
-    var connectionCheck=object :InternetListener{
+    var connectionCheck = object : InternetListener {
         override fun internet(availability: Boolean) {
 
         }
@@ -37,7 +37,11 @@ class CustomerViewModel(): ViewModel() {
     }
     private val _list= flow{
         while (true) {
-            emit(supabase.from(Table.CustomerInfo.name).select().decodeList<CustomerInfo>())
+            try {
+                emit(supabase.from(Table.CustomerInfo.name).select().decodeList<CustomerInfo>())
+            } catch (e: Exception) {
+
+            }
             delay(1000L)
         }
     }
@@ -50,22 +54,22 @@ class CustomerViewModel(): ViewModel() {
     private val _errorList= flow<List<String>>{
         while (true) {
 
-           customerInfo?.let {
-               try {
-                   emit(
-                       supabase.postgrest.rpc(
-                           CouldFunction.customerInfoValidate.first, mapOf(
-                               CouldFunction.customerInfoValidate.second[0] to customerInfo
-                           )
-                       ).decodeList()
-                   )
-                   connectionCheck.internet(true)
-               }catch (e: HttpRequestTimeoutException){
-                   delay(3000)
-                   connectionCheck.internet(false)
-               }catch (e:Exception){
-                   connectionCheck.other(e)
-               }
+            customerInfo?.let {
+                try {
+                    emit(
+                        supabase.postgrest.rpc(
+                            CouldFunction.customerInfoValidate.first, mapOf(
+                                CouldFunction.customerInfoValidate.second[0] to customerInfo
+                            )
+                        ).decodeList()
+                    )
+                    connectionCheck.internet(true)
+                } catch (e: HttpRequestTimeoutException) {
+                    delay(3000)
+                    connectionCheck.internet(false)
+                } catch (e: Exception) {
+                    connectionCheck.other(e)
+                }
             }
         }
         delay(250L)
@@ -76,7 +80,7 @@ class CustomerViewModel(): ViewModel() {
     init {
         viewModelScope.launch(Dispatchers.IO) {
 
-            _errorList.collect{
+            _errorList.collect {
                 errorList=it
             }
         }

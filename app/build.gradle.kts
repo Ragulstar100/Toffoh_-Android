@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.play.services.auth)
     implementation(libs.androidx.lifecycle.runtime.compose.android)
+    implementation(libs.androidx.constraintlayout)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -63,8 +64,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     //Google Login
-    implementation ("com.google.firebase:firebase-auth-ktx:23.1.0")
-    implementation ("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     //Android
     implementation("androidx.navigation:navigation-compose:2.5.3")
@@ -82,9 +83,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("com.google.code.gson:gson:2.11.0")
-
-
-
+    implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
 
 
     //ViewModer JetpackComposeThread MVVM

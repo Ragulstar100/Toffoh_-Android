@@ -18,20 +18,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 
-class CommonFoodViewModel(): ViewModel() {
+class CommonFoodViewModel : ViewModel() {
     var list by mutableStateOf(listOf<CommonFoodInfo>())
-    private var CommonFoodInfo: CommonFoodInfo?=null
+    private var CommonFoodInfo: CommonFoodInfo? = null
 
- //   var errorList by mutableStateOf((0..15).map { "none$it" })
-    private val _list= flow{
+    //   var errorList by mutableStateOf((0..15).map { "none$it" })
+    private val _list = flow {
         while (true) {
-            emit(supabase.from(Table.CommonFoodInfo.name).select().decodeList<CommonFoodInfo>())
+            try {
+                emit(supabase.from(Table.CommonFoodInfo.name).select().decodeList<CommonFoodInfo>())
+            } catch (e: Exception) {
+
+            }
             delay(1000L)
         }
     }
 
     fun feed(CommonFoodInfo: CommonFoodInfo): CommonFoodViewModel {
-        this.CommonFoodInfo=CommonFoodInfo
+        this.CommonFoodInfo = CommonFoodInfo
         return this
     }
 
@@ -43,10 +47,10 @@ class CommonFoodViewModel(): ViewModel() {
 //                errorList=it
 //            }
 //        }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _list.collect {
 
-                list=it
+                list = it
             }
         }
     }

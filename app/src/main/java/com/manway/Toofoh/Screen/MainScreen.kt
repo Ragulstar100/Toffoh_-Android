@@ -47,32 +47,31 @@ import com.manway.Toofoh.ui.RatingFilter
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
-import androidx.compose.foundation.Canvas
+
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.outlined.FavoriteBorder
+
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.Offset
+
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.dp
-import androidx.core.graphics.set
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.zIndex
+import androidx.constraintlayout.compose.ConstraintLayout
+
 import com.manway.Toofoh.ViewModel.CommonFoodViewModel
+import com.manway.Toofoh.android.LocalDb
+import com.manway.Toofoh.screen
+import com.manway.toffoh.admin.data.FoodInfo
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.status.SessionStatus
-import kotlinx.coroutines.delay
-import java.util.*
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
+import io.github.jan.supabase.postgrest.from
+
 
 //#f97a7b
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Unit){
+fun preview(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (screen) -> Unit, restorentPickListner: (RestaurantInfo) -> Unit, ) {
 
     var switchVegMode by remember {
         mutableStateOf(false)
@@ -83,9 +82,8 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
     }
 
     var address by remember {
-        mutableStateOf<Address?>(null)
+        mutableStateOf<Address?>(localDb.gerLocation())
     }
-
 
 
     val restorent = viewModel<RestaurantViewModel>()
@@ -117,10 +115,6 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
         restorent.pincode=it.pincode
     }
 
-
-
-
-
     val scope= rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     var showLocationPicker by remember {
@@ -130,25 +124,31 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
         mutableStateOf(false)
     }
 
-    LaunchedEffect(Unit) {
-        address=customerInfo.address[0]
-        scaffoldState.bottomSheetState.expand()
+
+    LaunchedEffect(address) {
+        if (address == null) {
+            scaffoldState.bottomSheetState.expand()
+            showLocationPicker = true
+        }
     }
 
 
     // val themeColor=Color(0xFFFf97a7b)
 
     BottomSheetScaffold(scaffoldState = scaffoldState, sheetContent = {
-       if(showLocationPicker) LocationPicker({
+        if (showLocationPicker) LocationPicker(customerInfo, {
                scope.launch {
                    showLocationPicker=false
                }
            }){
                address=it
+            localDb.setLocation(it)
+            restorent.pincode = it.pincode
                showLocationPicker=false
+            showFilter = false
            }
 
-        val (priceRange,starRating,cuisine)=listOf("Price Range","Star Rating","Cuisine")
+        val (priceRange, starRating, cuisine) = listOf("Price Range", "Star Rating", "Cuisine")
 
 
         var tab by remember {
@@ -156,100 +156,185 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
         }
 
 
-        if(showFilter) {
-            Column(Modifier.fillMaxWidth().height(450.dp).padding(10.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(priceRange,Modifier.clickable { tab=priceRange }.width(80.dp).border(1.dp,if(tab!=priceRange) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-                    Text(starRating,Modifier.clickable { tab=starRating }.width(80.dp).border(1.dp,if(tab!=starRating) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-                    Text(cuisine,Modifier.clickable { tab=cuisine }.width(80.dp).border(1.dp,if(tab!=cuisine) MaterialTheme.colorScheme.primary else Color.Transparent,MaterialTheme.shapes.medium).padding(5.dp),style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+        if (showFilter) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .height(450.dp)
+                    .padding(10.dp)) {
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(25.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        priceRange,
+                        Modifier
+                            .clickable { tab = priceRange }
+                            .width(80.dp)
+                            .border(
+                                1.dp,
+                                if (tab != priceRange) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(5.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+                    )
+                    Text(
+                        starRating,
+                        Modifier
+                            .clickable { tab = starRating }
+                            .width(80.dp)
+                            .border(
+                                1.dp,
+                                if (tab != starRating) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(5.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+                    )
+                    if (false) Text(
+                        cuisine,
+                        Modifier
+                            .clickable { tab = cuisine }
+                            .width(80.dp)
+                            .border(
+                                1.dp,
+                                if (tab != cuisine) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(5.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+                    )
                 }
-                when(tab){
-                    starRating->{
+                when (tab) {
+                    starRating -> {
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(aboveThreeStar==-1.0, {
-                                restorent.aboveTheStar=-1.0
-                                aboveThreeStar=-1.0
+                            RadioButton(aboveThreeStar == -1.0, {
+                                restorent.aboveTheStar = -1.0
+                                aboveThreeStar = -1.0
                             })
                             Text("None", style = MaterialTheme.typography.bodyMedium)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(aboveThreeStar==3.0, {
-                                restorent.aboveTheStar=3.0
-                                aboveThreeStar=3.0
+                            RadioButton(aboveThreeStar == 3.0, {
+                                restorent.aboveTheStar = 3.0
+                                aboveThreeStar = 3.0
                             })
                             Text("3 Star Above", style = MaterialTheme.typography.bodyMedium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(aboveThreeStar==4.0, {
-                                restorent.aboveTheStar=4.0
-                                aboveThreeStar=4.0
+                            RadioButton(aboveThreeStar == 4.0, {
+                                restorent.aboveTheStar = 4.0
+                                aboveThreeStar = 4.0
                             })
                             Text("4 Star Above", style = MaterialTheme.typography.bodyMedium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(aboveThreeStar==4.5, {
-                                restorent.aboveTheStar=4.5
-                                aboveThreeStar=4.5
+                            RadioButton(aboveThreeStar == 4.5, {
+                                restorent.aboveTheStar = 4.5
+                                aboveThreeStar = 4.5
                             })
                             Text("4.5 Star Above", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                    priceRange->{
+
+                    priceRange -> {
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(belowPrice==Double.MAX_VALUE, {
-                                restorent.belowPrice=Double.MAX_VALUE
-                                belowPrice=Double.MAX_VALUE
+                            RadioButton(belowPrice == Double.MAX_VALUE, {
+                                restorent.belowPrice = Double.MAX_VALUE
+                                belowPrice = Double.MAX_VALUE
                             })
                             Text("None", style = MaterialTheme.typography.bodyMedium)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(belowPrice==30.0, {
-                                restorent.belowPrice=30.0
-                                belowPrice=30.0
+                            RadioButton(belowPrice == 30.0, {
+                                restorent.belowPrice = 30.0
+                                belowPrice = 30.0
                             })
                             Text("30 Rs Above", style = MaterialTheme.typography.bodyMedium)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(belowPrice==100.0, {
-                                restorent.belowPrice=100.0
-                                belowPrice=100.0
+                            RadioButton(belowPrice == 100.0, {
+                                restorent.belowPrice = 100.0
+                                belowPrice = 100.0
                             })
                             Text("100 Rs Above", style = MaterialTheme.typography.bodyMedium)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(belowPrice==300.0, {
-                                restorent.belowPrice=300.0
-                                belowPrice=300.0
+                            RadioButton(belowPrice == 300.0, {
+                                restorent.belowPrice = 300.0
+                                belowPrice = 300.0
                             })
                             Text("300 Rs Above", style = MaterialTheme.typography.bodyMedium)
                         }
 
-
-
-
                     }
-                    cuisine->{
-                        val cuisineList= listOf("Latin American", "Fusion", "British", "Vegan", "North American", "African", "Caribbean","Chinese", "Italian", "Japanese","Vietnamese","French","Vegetarian","German","Spanish","Korean","Mexican","Indian","Thai","Greek","Tamil","South American","Mediterranean","Middle Eastern","dairy","mine")
-                        var cuisineSelected by remember {
-                            mutableStateOf(cuisineList.map { Filter("${Table.FoodInfo.name}.foodType",it,false) })
-                        }
-                        restorent.filterList=cuisineSelected.filter { it.enabled }
 
-                        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                            cuisineSelected.forEachIndexed {i, item ->
-                                Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    cuisine -> {
+                        val cuisineList = listOf(
+                            "Latin American",
+                            "Fusion",
+                            "British",
+                            "Vegan",
+                            "North American",
+                            "African",
+                            "Caribbean",
+                            "Chinese",
+                            "Italian",
+                            "Japanese",
+                            "Vietnamese",
+                            "French",
+                            "Vegetarian",
+                            "German",
+                            "Spanish",
+                            "Korean",
+                            "Mexican",
+                            "Indian",
+                            "Thai",
+                            "Greek",
+                            "Tamil",
+                            "South American",
+                            "Mediterranean",
+                            "Middle Eastern",
+                            "dairy",
+                            "mine"
+                        )
+                        var cuisineSelected by remember {
+                            mutableStateOf(cuisineList.map {
+                                Filter(
+                                    "${Table.FoodInfo.name}.foodType",
+                                    it,
+                                    false
+                                )
+                            })
+                        }
+                        restorent.filterList = cuisineSelected.filter { it.enabled }
+
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())) {
+                            cuisineSelected.forEachIndexed { i, item ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(5.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
                                     Checkbox(item.enabled, {
                                         cuisineSelected = cuisineSelected.mapIndexed { j, it ->
                                             if (i == j) it.copy(enabled = !it.enabled) else it
                                         }
                                     })
-                                    Text(item.value,style = MaterialTheme.typography.bodyMedium)
+                                    Text(item.value, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }
@@ -269,26 +354,22 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
         }
 
         AnimatedVisibility(switchSearch){
-            FoodGrid({ switchSearch = false }, restorentPickListner){
+            FoodGrid({ switchSearch = false }, restorentPickListner) {
                 searchField=it
                 switchSearch=false
             }
         }
 
+
         AnimatedVisibility(!switchSearch) {
             LazyColumn {
+
                 //Location
                 stickyHeader {
-                    Column(Modifier.fillMaxWidth()) {
+                    Column(Modifier.background(Color.White).fillMaxWidth()) {
 
                         //Address Location
-                        Row(Modifier.fillMaxWidth().padding(5.dp).clickable {
-                            scope.launch {
-                                scaffoldState.bottomSheetState.expand()
-                                showLocationPicker = true
-
-                            }
-                        }) {
+                        Row(Modifier.fillMaxWidth().padding(5.dp).clickable { scope.launch { scaffoldState.bottomSheetState.expand();showLocationPicker = true } }) {
                             Icon(Icons.Default.LocationOn, "", Modifier.size(25.dp), tint =MaterialTheme.colorScheme.primary)
                             Column(Modifier.fillMaxWidth(0.85f)) {
                                 Row(Modifier.fillMaxWidth().padding(start = 8.dp)) {
@@ -305,63 +386,97 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
                                     Text(
                                         it.address,
                                         style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(end = 8.dp),
                                         maxLines = 1
                                     )
                                 }
                             }
                             IconButton({}) {
-                                supabase.getImage(customerInfo.profileUrl, Modifier.clip(CircleShape).size(50.dp), ContentScale.FillBounds)
+                                supabase.getImage(customerInfo.profileUrl,
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .size(50.dp), ContentScale.FillBounds)
                                 // Image(Icons.Default.Search, "Profile picture", Modifier.size(50.dp))
                             }
                         }
 
                         //Search
-                        Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
-                        AssistChip({
-                            showFilter = true;
-                            scope.launch {
-                                scaffoldState.bottomSheetState.expand()
-                            }
-                                   },border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp,40.dp), tint = MaterialTheme.colorScheme.primary) },)
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
+                            AssistChip(
+                                {
+                                    showFilter =
+                                        true;scope.launch { scaffoldState.bottomSheetState.expand() }
+                                },
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                label = {
+                                    Icon(
+                                        painterResource(R.drawable.filter),
+                                        "",
+                                        Modifier.size(20.dp, 40.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                            )
                         Spacer(Modifier.height(10.dp))
-                        AssistChip({ switchSearch = true }, { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) { if (searchField.isEmpty()) Text("Search Your Dishes", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) else Text(searchField) } },
-                            modifier = Modifier.fillMaxWidth(.80f).height(40.dp).padding(horizontal = 20.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            leadingIcon = { Icon(Icons.Filled.Search, "", Modifier.size(25.dp), tint = MaterialTheme.colorScheme.primary) },
-                            trailingIcon = {
-//                                IconButton({
-//                                    switchVegMode = !switchVegMode
-//                                }) {
-//                                    Icon(
-//                                        painter = painterResource(R.drawable.veg),
-//                                        "",
-//                                        Modifier.size(20.dp),
-//                                        tint = if (switchVegMode) Color(
-//                                            0xFFEF5350
-//                                        ) else Color(0xFF66BB6A)
-//                                    )
-//                                }
-                            })
+                            AssistChip(
+                                { switchSearch = true },
+                                {
+                                    Column(
+                                        Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        if (searchField.isEmpty()) Text(
+                                            "Search Your Dishes",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.DarkGray
+                                        ) else Text(searchField)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth(.70f)
+                                    .height(40.dp)
+                                    .padding(horizontal = 20.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Search,
+                                        "",
+                                        Modifier.size(25.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                trailingIcon = {})
+
+                            Button(
+                                {
+                                    switchVegMode = !switchVegMode
+                                    RestaurantViewModel.vegOnly = switchVegMode
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.width(100.dp)
+                            ) {
+                                if (switchVegMode) Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Non Veg", style = MaterialTheme.typography.bodySmall)
+                                    //  Image(painter = painterResource(R.drawable.veg), "", Modifier.size(50.dp))
+                                }
+                                else Row(verticalAlignment = Alignment.CenterVertically) {
+                                    /// Icon(painter = painterResource(R.drawable.non_veg), "", Modifier.size(35.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Text("Veg", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+
                         }
 
                         //Filter
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Spacer(Modifier.width(25.dp))
 
-//                            AssistChip(
-//                                {
-//                                    showFilterDialog = true
-//                                },
-//                                leadingIcon = {
-//                                    Icon(
-//                                        painterResource(R.drawable.filter),
-//                                        "",
-//                                        Modifier.size(20.dp),
-//                                        tint = Color.LightGray
-//                                    )
-//                                },
-//                                label = { Text("Filter",style = MaterialTheme.typography.bodyMedium) })
 
                             val fontthisrow=MaterialTheme.typography.bodySmall
 
@@ -402,10 +517,31 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
                             })
                             Spacer(Modifier.width(25.dp))
                         }
+
+                        Row(
+                            Modifier
+                                .scale(1.0f)
+                                .fillMaxWidth()
+                                .height(35.dp),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                10.dp,
+                                alignment = Alignment.End
+                            )
+                        ) {
+                            IconButton({
+                                settingsListner(screen.orders)
+                            }) {
+                                Icon(Icons.Default.ShoppingCart, "Cart")
+                            }
+                            if (false) IconButton({
+                                settingsListner(screen.favourite)
+                            }) {
+                                Icon(Icons.Default.FavoriteBorder, "Cart")
+                            }
+                        }
+
                         Spacer(Modifier.height(30.dp))
                     }
-
-
 
                 }
 
@@ -414,20 +550,19 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
                 //Restorer Item
                 item {
                     Text("items " + restorent.list.size.toString())
-                    if (restorent.list.isNotEmpty()) restorent.list.forEach {
-                        customerItemView(it, restorentPickListner)
+                    if (address != null) if (restorent.list.isNotEmpty()) restorent.list.forEach {
+                        customerItemView(
+                            it,
+                            restorentPickListner
+                        )
                     }
+                    else Text("Please select location")
 
                 }
 
 
             }
         }
-
-
-
-
-
 
     }
 
@@ -438,14 +573,21 @@ fun preview(customerInfo: CustomerInfo,restorentPickListner:(RestaurantInfo)->Un
 @Composable
 fun trail(){
     Dialog({}) {
-        Column(Modifier.background(Color.White,MaterialTheme.shapes.medium).width(450.dp).height(500.dp)) {
+        Column(
+            Modifier
+                .background(Color.White, MaterialTheme.shapes.medium)
+                .width(450.dp)
+                .height(500.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 IconButton({}){
                     Icon(Icons.Default.Close,"Close Action")
                 }
                 }
 
-                    Column (Modifier.horizontalScroll(rememberScrollState()).fillMaxWidth(),  verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column (
+                        Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .fillMaxWidth(),  verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         var newest_bool by remember {
                             mutableStateOf(false)
                             //updated_at
@@ -462,7 +604,10 @@ fun trail(){
                             mutableStateOf(false)
                         }
 
-                        val modifier=Modifier.width(300.dp).height(30.dp).padding(start = 10.dp)
+                        val modifier= Modifier
+                            .width(300.dp)
+                            .height(30.dp)
+                            .padding(start = 10.dp)
                         val style=MaterialTheme.typography.bodySmall
                         val rangeSliderState=RangeSliderState(0f,8f,100)
 
@@ -514,7 +659,11 @@ fun trail(){
 
 //Optimize this will be
 @Composable
-fun LocationPicker(closeAction: ()->Unit,pickAddress: (Address)->Unit){
+fun LocationPicker(
+    customerInfo: CustomerInfo,
+    closeAction: () -> Unit,
+    pickAddress: (Address) -> Unit,
+) {
     val scope= rememberCoroutineScope()
     var address= viewModel<RestaurantViewModel>()
 
@@ -524,6 +673,25 @@ fun LocationPicker(closeAction: ()->Unit,pickAddress: (Address)->Unit){
 
         var searchField by remember {
             mutableStateOf("")
+        }
+        var switchCustomerAddress by remember {
+            mutableStateOf(true)
+        }
+
+        Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(switchCustomerAddress, {
+                    switchCustomerAddress = true
+                })
+                Text("Customer Address", style = MaterialTheme.typography.bodyMedium)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(!switchCustomerAddress, {
+                    switchCustomerAddress = false
+                })
+                Text("Other location", style = MaterialTheme.typography.bodyMedium)
+            }
         }
 
         Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
@@ -542,11 +710,16 @@ fun LocationPicker(closeAction: ()->Unit,pickAddress: (Address)->Unit){
 
         Spacer(Modifier.height(10.dp))
 
-      //  OutlinedTextField(searchField,{searchField=it; })
-
-
-        address.unchangedList.filter { Pattern.compile(searchField).matcher(it.address.address).find() || Pattern.compile(searchField).matcher(it.address.pincode).find() }.forEach {
-            Column(Modifier.padding(15.dp)) {
+        if (!switchCustomerAddress) address.unchangedList.filter {
+            Pattern.compile(searchField).matcher(it.address.address).find() || Pattern.compile(
+                searchField
+            ).matcher(it.address.pincode).find()
+        }.forEach {
+            Column(Modifier.padding(15.dp)
+                    .clickable {
+                        pickAddress(it.address)
+                        closeAction()
+                    }) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(it.address.pincode,style = MaterialTheme.typography.bodyMedium)
                     Text(it.address.geoLocation,style = MaterialTheme.typography.bodySmall)
@@ -556,104 +729,312 @@ fun LocationPicker(closeAction: ()->Unit,pickAddress: (Address)->Unit){
             }
 
         }
+        else customerInfo.address.filter {
+            Pattern.compile(searchField).matcher(it.address).find() || Pattern.compile(searchField)
+                .matcher(it.pincode).find()
+        }.forEach {
+            Column(Modifier.padding(15.dp).clickable {
+                        pickAddress(it)
+                        closeAction()
+                    }) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(it.address, style = MaterialTheme.typography.bodyMedium)
+                    Text(it.pincode, style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(it.geoLocation, style = MaterialTheme.typography.bodyLarge)
+            }
+
+        }
     }
 
 }
 
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun customerItemView(restaurant: RestaurantInfo,restaurantPickListner:(RestaurantInfo)->Unit) {
-    Card(modifier = Modifier.fillMaxWidth().padding(8.dp).clickable { restaurantPickListner(restaurant) }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Image
 
-            Text(restaurant.id.toString())
+    var foodlist by remember {
+        mutableStateOf(listOf<FoodInfo>())
+    }
 
+    LaunchedEffect(Unit) {
+        foodlist = supabase.from(Table.FoodInfo.name).select {
+            filter {
+                eq("restaurantChannelId", restaurant.channel_id ?: "")
+            }
+        }.decodeList()
+    }
 
-            Image(painter = painterResource(R.drawable.main_screen), contentDescription = "${restaurant.name} Image", modifier = Modifier.fillMaxWidth().height(200.dp).clip(
-                RoundedCornerShape(8.dp)
-            ))
+    Card(modifier = Modifier.fillMaxWidth().height(300.dp).padding(8.dp).clickable { restaurantPickListner(restaurant) }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
+        Row(Modifier.fillMaxWidth()) {
 
-            // Name and Rating Row
-            Row(modifier = Modifier.fillMaxWidth()
-                .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = restaurant.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
+            Box(Modifier.fillMaxWidth(0.80f).fillMaxHeight(), contentAlignment = Alignment.BottomStart) {
+                supabase.getImage(restaurant.imageUrl, Modifier.fillMaxWidth().height(300.dp), ContentScale.FillBounds)
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${restaurant.rating} ★",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "(${restaurant.numberOfRatings})",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                }
+                Text(restaurant.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(10.dp))
             }
 
-            // Address
-            Text(
-                text = restaurant.address.toString(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary)) {
 
-            // Cuisine List
-            Text(
-                text = restaurant.cuisine.joinToString(", "),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
-            // Estimated Delivery Time and Availability
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Delivery in ${restaurant.estimatedDeliveryTime} mins",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Text(
-                    text = if (restaurant.isAvailable== Availability.Available) "Available" else "Closed",
-                    color = if (restaurant.isAvailable== Availability.Available) Color.Green else Color.Red,
-                    style = MaterialTheme.typography.bodyMedium
-                )
             }
         }
     }
+
+
+//    Card(modifier = Modifier.fillMaxWidth().padding(8.dp).clickable { restaurantPickListner(restaurant) }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
+//        Column(modifier = Modifier.padding(16.dp)) {
+//            // Image
+//
+//            Text(restaurant.id.toString())
+//
+//
+//            Image(painter = painterResource(R.drawable.main_screen), contentDescription = "${restaurant.name} Image", modifier = Modifier.fillMaxWidth().height(200.dp).clip(
+//                RoundedCornerShape(8.dp)
+//            ))
+//
+//            // Name and Rating Row
+//            Row(modifier = Modifier.fillMaxWidth()
+//                .padding(top = 8.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween
+//            ) {
+//                Text(
+//                    text = restaurant.name,
+//                    style = MaterialTheme.typography.bodySmall,
+//                    fontWeight = FontWeight.Bold
+//                )
+//
+//                Row(verticalAlignment = Alignment.CenterVertically) {
+//                    Text(
+//                        text = "${restaurant.rating} ★",
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = Color.Gray
+//                    )
+//                    Spacer(modifier = Modifier.width(4.dp))
+//                    Text(
+//                        text = "(${restaurant.numberOfRatings})",
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = Color.Gray
+//                    )
+//                }
+//            }
+//
+//            // Address
+//            Text(
+//                text = restaurant.address.toString(),
+//                style = MaterialTheme.typography.bodyMedium,
+//                color = Color.Gray,
+//                modifier = Modifier.padding(top = 4.dp)
+//            )
+//
+//            // Cuisine List
+//            Text(
+//                text = restaurant.cuisine.joinToString(", "),
+//                style = MaterialTheme.typography.bodyMedium,
+//                modifier = Modifier.padding(top = 4.dp)
+//            )
+//
+//            // Estimated Delivery Time and Availability
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(top = 8.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween
+//            ) {
+//                Text(
+//                    text = "Delivery in ${restaurant.estimatedDeliveryTime} mins",
+//                    style = MaterialTheme.typography.bodyMedium
+//                )
+//
+//                Text(
+//                    text = if (restaurant.isAvailable== Availability.Available) "Available" else "Closed",
+//                    color = if (restaurant.isAvailable== Availability.Available) Color.Green else Color.Red,
+//                    style = MaterialTheme.typography.bodyMedium
+//                )
+//            }
+//        }
+//    }
 }
+
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun HotelItemDisplay(restaurant: RestaurantInfo, restaurantPickListner: (RestaurantInfo) -> Unit) {
+
+    var foodlist by remember {
+        mutableStateOf(listOf<FoodInfo>())
+    }
+
+    LaunchedEffect(Unit) {
+        foodlist = supabase.from(Table.FoodInfo.name).select {
+            filter {
+                eq("restaurantChannelId", restaurant.channel_id ?: "")
+            }
+        }.decodeList()
+    }
+
+    Card {
+        ConstraintLayout(
+            Modifier
+                .padding(10.dp)
+                .clip(MaterialTheme.shapes.large)
+                .background(Color.Yellow)
+                .fillMaxWidth()
+                .height(330.dp)
+        ) {
+            val (favorate, textContainer, hide, hoteldistance, price) = createRefs()
+            HorizontalPager(rememberPagerState { foodlist.size }) {
+                supabase.getImage(
+                    foodlist[it].imageUrl,
+                    Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentScale = ContentScale.FillBounds
+                )
+            }
+            //Gps Avaiable
+            Text(
+                "1.5 km",
+                Modifier
+                    .zIndex(3F)
+                    .padding(1.dp)
+                    .constrainAs(hoteldistance) {
+                        bottom.linkTo(
+                            textContainer.top,
+                            -10.dp
+                        );end.linkTo(parent.end, -5.dp)
+                    }
+                    .background(Color.White, MaterialTheme.shapes.small)
+                    .padding(5.dp)
+            )
+
+            Icon(Icons.Outlined.FavoriteBorder, "Favorites",
+                Modifier
+                    .constrainAs(favorate) {
+                        top.linkTo(parent.top, 10.dp)
+                        end.linkTo(parent.end, 10.dp)
+                    }
+                    .size(30.dp), tint = Color.White)
+
+            Column(Modifier.constrainAs(textContainer) { bottom.linkTo(parent.bottom, 0.dp) }.background(Color.White).fillMaxWidth().height(130.dp)) {
+                Row(Modifier.padding(top = 15.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+
+                    Text(restaurant.name, maxLines = 2, modifier = Modifier.fillMaxWidth(0.80f).padding(start = 10.dp), style = MaterialTheme.typography.headlineMedium)
+
+                    Text("${restaurant.rating} Star", Modifier.padding(5.dp).background(color = Color(0xFF00897B), MaterialTheme.shapes.extraSmall).padding(horizontal = 3.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.titleMedium)
+
+                }
+                Row(Modifier.padding(top = 10.dp, start = 10.dp)) { Text("Pure Veg");Text("South Indian");Text("Starts at") }
+                Text("${restaurant.estimatedDeliveryTime} mins", Modifier.padding(10.dp), style = MaterialTheme.typography.titleMedium)
+
+            }
+        }
+    }
+
+}
+
+//@Composable
+//fun customerItemView(restaurant: RestaurantInfo,restaurantPickListner:(RestaurantInfo)->Unit) {
+//    Card(modifier = Modifier.fillMaxWidth().padding(8.dp).clickable { restaurantPickListner(restaurant) }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
+//        Column(modifier = Modifier.padding(16.dp)) {
+//            // Image
+//
+//            Text(restaurant.id.toString())
+//
+//
+//            Image(painter = painterResource(R.drawable.main_screen), contentDescription = "${restaurant.name} Image", modifier = Modifier.fillMaxWidth().height(200.dp).clip(
+//                RoundedCornerShape(8.dp)
+//            ))
+//
+//            // Name and Rating Row
+//            Row(modifier = Modifier.fillMaxWidth()
+//                .padding(top = 8.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween
+//            ) {
+//                Text(
+//                    text = restaurant.name,
+//                    style = MaterialTheme.typography.bodySmall,
+//                    fontWeight = FontWeight.Bold
+//                )
+//
+//                Row(verticalAlignment = Alignment.CenterVertically) {
+//                    Text(
+//                        text = "${restaurant.rating} ★",
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = Color.Gray
+//                    )
+//                    Spacer(modifier = Modifier.width(4.dp))
+//                    Text(
+//                        text = "(${restaurant.numberOfRatings})",
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = Color.Gray
+//                    )
+//                }
+//            }
+//
+//            // Address
+//            Text(
+//                text = restaurant.address.toString(),
+//                style = MaterialTheme.typography.bodyMedium,
+//                color = Color.Gray,
+//                modifier = Modifier.padding(top = 4.dp)
+//            )
+//
+//            // Cuisine List
+//            Text(
+//                text = restaurant.cuisine.joinToString(", "),
+//                style = MaterialTheme.typography.bodyMedium,
+//                modifier = Modifier.padding(top = 4.dp)
+//            )
+//
+//            // Estimated Delivery Time and Availability
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(top = 8.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween
+//            ) {
+//                Text(
+//                    text = "Delivery in ${restaurant.estimatedDeliveryTime} mins",
+//                    style = MaterialTheme.typography.bodyMedium
+//                )
+//
+//                Text(
+//                    text = if (restaurant.isAvailable== Availability.Available) "Available" else "Closed",
+//                    color = if (restaurant.isAvailable== Availability.Available) Color.Green else Color.Red,
+//                    style = MaterialTheme.typography.bodyMedium
+//                )
+//            }
+//        }
+//    }
+//}
 
 @Composable
 fun customerItemView() {
     val restaurant=RestaurantInfo.initialRestaurantInfo.copy(name ="Hello" )
-    Card(modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
-       // restaurantPickListner(restaurant)
-                                                                    }, elevation = CardDefaults.cardElevation(4.dp)) {
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .padding(8.dp)
+        .clickable {
+            // restaurantPickListner(restaurant)
+        }, elevation = CardDefaults.cardElevation(4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Image
 
             Text(restaurant.id.toString())
 
 
-            Image(painter = painterResource(R.drawable.main_screen), contentDescription = "${restaurant.name} Image", modifier = Modifier.fillMaxWidth().height(200.dp).clip(
-                RoundedCornerShape(8.dp)
-            ))
+            Image(painter = painterResource(R.drawable.main_screen), contentDescription = "${restaurant.name} Image", modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(
+                    RoundedCornerShape(8.dp)
+                ))
 
             // Name and Rating Row
-            Row(modifier = Modifier.fillMaxWidth()
+            Row(modifier = Modifier
+                .fillMaxWidth()
                 .padding(top = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -717,19 +1098,29 @@ fun customerItemView() {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun FoodGrid(closeAction: () -> Unit,restorentPickListner:(RestaurantInfo)->Unit,pickFood:(String)->Unit) {
+fun FoodGrid(
+    closeAction: () -> Unit,
+    restorentPickListner: (RestaurantInfo) -> Unit,
+    pickFood: (String) -> Unit,
+) {
     var list by remember { mutableStateOf(listOf<CommonFoodInfo>()) }
-    var restaurant=viewModel<RestaurantViewModel>()
-    var commonFood=viewModel<CommonFoodViewModel>()
+    var restaurant = viewModel<RestaurantViewModel>()
+    var commonFood = viewModel<CommonFoodViewModel>()
 
     LaunchedEffect(key1 = true) {
         list = supabase.postgrest.from(Table.CommonFoodInfo.name).select().decodeList()
     }
 
-    Column(Modifier.background(MaterialTheme.colorScheme.primaryContainer).fillMaxSize()) {
+    Column(
+        Modifier
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .fillMaxSize()) {
         var search by remember { mutableStateOf("") }
         Spacer(Modifier.height(25.dp))
-        Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(5.dp), horizontalArrangement = Arrangement.Start) {
             Spacer(Modifier.width(10.dp))
 
             OutlinedTextField(
@@ -757,7 +1148,10 @@ fun FoodGrid(closeAction: () -> Unit,restorentPickListner:(RestaurantInfo)->Unit
                 ),
                 maxLines = 2,
                 textStyle = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.scale(0.80f).fillMaxWidth(0.75f).height(50.dp)
+                modifier = Modifier
+                    .scale(0.80f)
+                    .fillMaxWidth(0.75f)
+                    .height(50.dp)
             )
 
             Spacer(Modifier.width(10.dp))
@@ -771,76 +1165,129 @@ fun FoodGrid(closeAction: () -> Unit,restorentPickListner:(RestaurantInfo)->Unit
         }
 
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Food", Modifier.clickable { foodOn = !foodOn; }.width(80.dp).border(1.dp, if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-            Text("Hotel", Modifier.clickable { foodOn=false }.width(80.dp).border(1.dp, if (!foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(25.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Food",
+                Modifier
+                    .clickable { foodOn = !foodOn; }
+                    .width(80.dp)
+                    .border(
+                        1.dp,
+                        if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        MaterialTheme.shapes.medium
+                    )
+                    .padding(5.dp),
+                style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+            )
+            Text(
+                "Hotel",
+                Modifier
+                    .clickable { foodOn = false }
+                    .width(80.dp)
+                    .border(
+                        1.dp,
+                        if (!foodOn) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        MaterialTheme.shapes.medium
+                    )
+                    .padding(5.dp),
+                style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+            )
         }
 
-       if(foodOn)  LazyColumn {
-           item {
-               FlowRow(Modifier.padding(10.dp).fillMaxWidth(), maxItemsInEachRow = 3) {
-                    commonFood.list.filter { Pattern.compile(search).matcher(it.name).find() }.forEach {
-                        Card({
-                            pickFood(it.name)
-                        },shape = MaterialTheme.shapes.medium,elevation = CardDefaults.cardElevation(4.dp), modifier = Modifier.fillMaxWidth(.33f).height(100.dp).padding(vertical = 5.dp, horizontal =20.dp)) {
-                            supabase.getImage(
-                                it.imageUrl,
-                                Modifier.clip(MaterialTheme.shapes.extraSmall).fillMaxSize(),
-                                ContentScale.Crop
-                            )
-                          //  Text(it.name)
-                        }
-                    }
-               }
-           }
-       }
-
-      if(!foodOn)  LazyColumn {
+        if (foodOn) LazyColumn {
             item {
-            restaurant.unchangedList.filter { Pattern.compile(search).matcher(it.name).find() }.forEach {
-                Row(Modifier.fillMaxWidth().padding(5.dp).clickable {
-                    restorentPickListner(it)
-                }) {
-                    supabase.getImage(
-                        it.imageUrl,
-                        Modifier.clip(MaterialTheme.shapes.extraSmall).size(100.dp),
-                        ContentScale.FillBounds
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column(
-                        Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(it.name, style = MaterialTheme.typography.bodySmall)
-                        //Rating
-                        val decimal = it.rating - Math.floor(it.rating)
-                        Row(Modifier) {
-                            Text(it.rating.toString(), style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.width(10.dp))
-                            for (i in 1..Math.floor(it.rating).toInt()) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    "",
-                                    tint = Color.Yellow,
-                                    modifier = Modifier.size(10.dp)
+                FlowRow(
+                    Modifier
+                        .padding(10.dp)
+                        .fillMaxWidth(), maxItemsInEachRow = 3) {
+                    commonFood.list.filter { Pattern.compile(search).matcher(it.name).find() }
+                        .forEach {
+                            Card(
+                                {
+                                    pickFood(it.name)
+                                },
+                                shape = MaterialTheme.shapes.medium,
+                                elevation = CardDefaults.cardElevation(4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth(.33f)
+                                    .height(100.dp)
+                                    .padding(vertical = 5.dp, horizontal = 20.dp)
+                            ) {
+                                supabase.getImage(
+                                    it.imageUrl,
+                                    Modifier
+                                        .clip(MaterialTheme.shapes.extraSmall)
+                                        .fillMaxSize(),
+                                    ContentScale.Crop
                                 )
-                                if (i == Math.floor(it.rating).toInt() && decimal != 0.0) Icon(
-                                    painterResource(R.drawable.half_star),
-                                    "",
-                                    tint = Color.Yellow,
-                                    modifier = Modifier.size(10.dp)
-                                )
+                                //  Text(it.name)
                             }
                         }
-
-                    }
-
                 }
             }
-                }
-
         }
 
+        if (!foodOn) LazyColumn {
+            item {
+                restaurant.unchangedList.filter { Pattern.compile(search).matcher(it.name).find() }
+                    .forEach {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(5.dp)
+                                .clickable {
+                                    restorentPickListner(it)
+                                }) {
+                            supabase.getImage(
+                                it.imageUrl,
+                                Modifier
+                                    .clip(MaterialTheme.shapes.extraSmall)
+                                    .size(100.dp),
+                                ContentScale.FillBounds
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(
+                                Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(it.name, style = MaterialTheme.typography.bodySmall)
+                                //Rating
+                                val decimal = it.rating - Math.floor(it.rating)
+                                Row(Modifier) {
+                                    Text(
+                                        it.rating.toString(),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    for (i in 1..Math.floor(it.rating).toInt()) {
+                                        Icon(
+                                            Icons.Default.Star,
+                                            "",
+                                            tint = Color.Yellow,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                        if (i == Math.floor(it.rating)
+                                                .toInt() && decimal != 0.0
+                                        ) Icon(
+                                            painterResource(R.drawable.half_star),
+                                            "",
+                                            tint = Color.Yellow,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                    }
+                                }
+
+                            }
+
+                        }
+                    }
+            }
+
+        }
 
 
     }

@@ -30,7 +30,7 @@ val provider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs
 )
 
-val fontName = GoogleFont("Phudu")
+val fontName = GoogleFont("Jost")
 
 val CustomFontFamily = FontFamily(
     Font(

@@ -40,18 +40,31 @@ import kotlinx.serialization.Serializable
 enum class FoodCategory{ VEG, NON_VEG }
 
 @Serializable
-public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null, val channelId:String?=null, val profileUrl: ImageUrl?=null, val email:String?, val phoneNumber: PhoneNumber, val name:String, val foodCategory: FoodCategory, val address:List<Address>, val others:HashMap<String,String>?=null ){
+data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null, val channelId:String?=null, val profileUrl: ImageUrl?=null, val email:String?, val phoneNumber: PhoneNumber, val name:String, val foodCategory: FoodCategory, val address:List<Address>, val others:HashMap<String,String>?=null ){
 
     companion object{
         // val (id_error,created_at_error,channelId_error,profileUrl_error,email_error,phoneNumber_error,name_error,foodCategory_error,address_error,others_error) = listOf(0 to "id",1 to "created_at",2 to "channelId",3 to "profileUrl",4 to "email",5 to "phoneNumber",6 to "name",7 to "foodCategory",8 to "address",9 to "others")
-        val initialCustomerInfo= CustomerInfo(null, null,null,null,"", PhoneNumber("+91","" ), "", FoodCategory.VEG, listOf(
-            Address("","","")
-        ), hashMapOf("none" to "none"))
+        val initialCustomerInfo = CustomerInfo(
+            null,
+            null,
+            null,
+            null,
+            "",
+            PhoneNumber("+91", ""),
+            "",
+            FoodCategory.VEG,
+            listOf(Address("", "", "")),
+            hashMapOf("none" to "none")
+        )
     }
 
     @Composable
     fun itemView(refIndex:Int){
-            Row(Modifier.padding(end = 10.dp).border(1.dp,Color.LightGray, RoundedCornerShape(15)).padding(15.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .padding(end = 10.dp)
+                    .border(1.dp, Color.LightGray, RoundedCornerShape(15))
+                    .padding(15.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 Text(refIndex.toString(), modifier = Modifier.width(40.dp), style = MaterialTheme.typography.titleSmall.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.W300))
                 Text(name, modifier = Modifier.width(250.dp), style = MaterialTheme.typography.titleSmall.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.W300))
                 Text(phoneNumber.toString(), modifier = Modifier.width(250.dp), style = MaterialTheme.typography.titleSmall.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.W300))
@@ -67,7 +80,7 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
     @SuppressLint("CoroutineCreationDuringComposition")
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    fun profileInfo(colseAction:(Boolean)->Unit) {
+    fun profileInfo(colseAction: (Boolean) -> Unit) {
 
         var customer = viewModel<CustomerViewModel>()
 
@@ -106,15 +119,15 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
             mutableStateOf(true)
         }
 
-        if(!connection){
+        if (!connection) {
             Dialog({}) {
                 Text("check internet connection")
             }
         }
 
-        customer.connectionCheck=object : InternetListener {
-            override fun internet(availability:Boolean) {
-                connection=availability
+        customer.connectionCheck = object : InternetListener {
+            override fun internet(availability: Boolean) {
+                connection = availability
             }
 
             override fun other(e: Exception) {
@@ -127,7 +140,7 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
         CustomerInfoScope(customerInfo) {
 
             customerInfo.let {
-               val errorList = customer.feed(it).errorList
+                val errorList = customer.feed(it).errorList
 
 
                 Column(
@@ -181,11 +194,13 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
 
 
                     Row(
-                        Modifier.width(280.dp).border(
-                            1.dp,
-                            MaterialTheme.colorScheme.primary,
-                            shape = MaterialTheme.shapes.small
-                        ),
+                        Modifier
+                            .width(280.dp)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.primary,
+                                shape = MaterialTheme.shapes.small
+                            ),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -198,7 +213,9 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                             })
                             Text(
                                 "VEG",
-                                modifier = Modifier.background(Color.Transparent).padding(10.dp)
+                                modifier = Modifier
+                                    .background(Color.Transparent)
+                                    .padding(10.dp)
                             )
                         }
                         Row(
@@ -209,17 +226,14 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                                 customerInfo =
                                     customerInfo.copy(foodCategory = FoodCategory.NON_VEG)
                             })
-                            Text(
-                                "NON VEG",
-                                modifier = Modifier.background(Color.White)
-                            )
+                            Text("NON VEG", modifier = Modifier.background(Color.White))
                         }
                     }
 
-                    errorList.filterIndexed { i, it -> !listOf(4,8).contains(i) }
-                        .forEachIndexed { i, it ->
-                            Text("$i $it")
-                        }
+//                    errorList.filterIndexed { i, it -> !listOf(4,8).contains(i) }
+//                        .forEachIndexed { i, it ->
+//                            Text("$i $it")
+//                        }
 
 
                     //Address
@@ -277,7 +291,7 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
 //                        customerInfo = customerInfo.copy(address = addresses.value)
 //                    }
 
-                    if (errorList.filterIndexed { i, it -> listOf(4).contains(i) }
+                    if (!errorList.filterIndexed { i, it -> !listOf(4, 8).contains(i) }
                             .map { it.isEmpty() }.contains(false)) Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -290,7 +304,10 @@ public data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTim
                         }) {
                             Text("Ok")
                         }
-                        Spacer(Modifier.width(100.dp).height(50.dp))
+                        Spacer(
+                            Modifier
+                                .width(100.dp)
+                                .height(50.dp))
                     }
                 }
             }

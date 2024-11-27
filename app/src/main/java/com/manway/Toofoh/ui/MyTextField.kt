@@ -32,7 +32,7 @@ fun MyOutlinedTextField(value: String, onValueChange: (String) -> Unit, label: S
             readOnly = readOnly,
             trailingIcon = trailingIcon,
             supportingText = {
-                Text(text = errorMsg, color = Color.Black)
+                Text(text = errorMsg, color = Color.Red)
             },
             shape = MaterialTheme.shapes.small,
             leadingIcon = leadingIcon,
@@ -49,12 +49,25 @@ fun MyOutlinedTextField(value: String, onValueChange: (String) -> Unit, label: S
 fun MyOutlinedTextField(value: String, onValueChange: (String) -> Unit, label: String, errorInfo: ErrorInfo?, errorState: ErrorState, readOnly: Boolean = false, trailingIcon: @Composable (() -> Unit)= {}, leadingIcon: @Composable (() -> Unit)= {}, keyboardType: KeyboardType = KeyboardType.Text, keyboardActions: KeyboardActions = KeyboardActions.Default, modifier: Modifier = Modifier) {
     val isError = errorState.error && errorState.interact && errorInfo != null && errorInfo.field == label
     Row {
-        OutlinedTextField(value = value, onValueChange = onValueChange, supportingText = {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            supportingText = {
             Text(
                 text = errorInfo!!.message,
                 color = Color.Red
             )
-        }, label = { Text(label) }, shape = MaterialTheme.shapes.small, isError = isError, readOnly = readOnly, trailingIcon = trailingIcon, leadingIcon = leadingIcon, keyboardActions = keyboardActions, keyboardOptions = KeyboardOptions(keyboardType = keyboardType), modifier = modifier)
+            },
+            label = { Text(label) },
+            shape = MaterialTheme.shapes.small,
+            isError = isError,
+            readOnly = readOnly,
+            trailingIcon = trailingIcon,
+            leadingIcon = leadingIcon,
+            keyboardActions = keyboardActions,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            modifier = modifier
+        )
 
     }
 }

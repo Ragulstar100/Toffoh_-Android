@@ -32,17 +32,28 @@ class RestaurantViewModel: ViewModel() {
     var list by mutableStateOf(listOf<RestaurantInfo>())
     @SuppressLint("SuspiciousIndentation")
     private val _list= flow{
-        val columns=  Columns.raw(""" *, ${Table.FoodInfo.name}!inner ( "name","price","updated_at","isAvailable","foodCategory","foodType") """.trimIndent())
+        val columns =
+            Columns.raw(""" *, ${Table.FoodInfo.name}!inner ( "name","price","updated_at","isAvailable","foodCategory","foodType") """.trimIndent())
         while (true) {
+            try {
             emit(supabase.from(Table.RestaurantInfo.name)
-                .select(columns,filter).decodeList<RestaurantInfo>())
+                .select(columns, filter).decodeList<RestaurantInfo>()
+            )
+            } catch (e: Exception) {
+
+            }
             delay(250L)
         }
     }
     var unchangedList by mutableStateOf(listOf<RestaurantInfo>())
     private val _unchangedList= flow{
         while (true) {
-            emit(supabase.from(Table.RestaurantInfo.name).select().decodeList<RestaurantInfo>())
+            try {
+                emit(supabase.from(Table.RestaurantInfo.name).select().decodeList<RestaurantInfo>())
+            } catch (e: Exception) {
+
+            }
+
             delay(1000)
         }
     }
@@ -51,23 +62,29 @@ class RestaurantViewModel: ViewModel() {
     private  val _errorList= flow<List<String>>{
         while (true) {
             RestaurantInfo?.let {
-                emit(
-                    supabase.postgrest.rpc(
-                        CouldFunction.RestaurantInfoValidate.first, mapOf(
-                            CouldFunction.RestaurantInfoValidate.second[0] to RestaurantInfo)).decodeList()
-                )
+                try {
+                    emit(
+                        supabase.postgrest.rpc(
+                            CouldFunction.RestaurantInfoValidate.first, mapOf(
+                                CouldFunction.RestaurantInfoValidate.second[0] to RestaurantInfo
+                            )
+                        ).decodeList()
+                    )
+                } catch (e: Exception) {
+
+                }
             }
         }
         delay(1000L)
 
 
     }
-      var filterList by mutableStateOf(listOf<Filter>())
+    var filterList by mutableStateOf(listOf<Filter>())
     init {
 
 
 
-        viewModelScope.launch() {
+        viewModelScope.launch {
             _unchangedList.collect {
 
                 unchangedList=it
@@ -100,6 +117,8 @@ class RestaurantViewModel: ViewModel() {
         if(quickDelivery)  order("estimatedDeliveryTime", Order.ASCENDING)
 
 
+
+
         filter {
             //above below
             when(aboveTheStar){
@@ -108,7 +127,8 @@ class RestaurantViewModel: ViewModel() {
                 4.5->gte("rating",4.5)
             }
 
-         //   eq("${Table.FoodInfo.name}.foodType->>1","Tamil")
+
+            //   eq("${Table.FoodInfo.name}.foodType->>1","Tamil")
 //                filterList.filter { it.enabled }.forEach { key->
 //                    for(i in 1..10) {
 //
@@ -143,6 +163,10 @@ class RestaurantViewModel: ViewModel() {
 
     }
 
+
+    companion object {
+        var vegOnly = false
+    }
 
 
 

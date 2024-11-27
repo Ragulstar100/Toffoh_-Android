@@ -22,7 +22,11 @@ class ServiceAreaViewModel(): ViewModel() {
     var errorList by mutableStateOf((0..15).map { "none$it" })
     private val _list= flow{
         while (true) {
-            emit(supabase.from(Table.ServiceArea.name).select().decodeList<ServiceArea>())
+            try {
+                emit(supabase.from(Table.ServiceArea.name).select().decodeList<ServiceArea>())
+            }catch (e:Exception){
+
+            }
             delay(1000L)
         }
     }
