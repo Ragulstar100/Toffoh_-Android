@@ -49,11 +49,14 @@ import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.outlined.FavoriteBorder
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.zIndex
@@ -157,45 +160,15 @@ fun preview(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (scre
 
 
         if (showFilter) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .height(450.dp)
-                    .padding(10.dp)) {
+            Column(Modifier.fillMaxWidth().height(450.dp).padding(10.dp)) {
 
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(25.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        priceRange,
-                        Modifier
-                            .clickable { tab = priceRange }
-                            .width(80.dp)
-                            .border(
-                                1.dp,
-                                if (tab != priceRange) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                MaterialTheme.shapes.medium
-                            )
-                            .padding(5.dp),
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(priceRange, Modifier.clickable { tab = priceRange }.width(80.dp).border(1.dp, if (tab != priceRange) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp),
                         style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
                     )
-                    Text(
-                        starRating,
-                        Modifier
-                            .clickable { tab = starRating }
-                            .width(80.dp)
-                            .border(
-                                1.dp,
-                                if (tab != starRating) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                MaterialTheme.shapes.medium
-                            )
-                            .padding(5.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
-                    )
-                    if (false) Text(
-                        cuisine,
+                    Text(starRating, Modifier.clickable { tab = starRating }.width(80.dp).border(1.dp, if (tab != starRating) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+
+                    if (false) Text(cuisine,
                         Modifier
                             .clickable { tab = cuisine }
                             .width(80.dp)
@@ -568,6 +541,320 @@ fun preview(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (scre
 
 }
 
+
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (screen) -> Unit, restorentPickListner: (RestaurantInfo) -> Unit ){
+    var searchField by remember { mutableStateOf("") }
+    var switchVegMode by remember { mutableStateOf(false) }
+    var newest_bool by remember { mutableStateOf(false) }
+    var quick_delivery_bool by remember {
+        mutableStateOf(false)
+    }
+
+    var address by remember {
+        mutableStateOf<Address?>(localDb.gerLocation())
+    }
+
+    val restorent = viewModel<RestaurantViewModel>()
+    restorent.search(searchField)
+
+    var showAvailable by remember {
+        mutableStateOf(false)
+        //isAvailable
+    }
+
+    var aboveThreeStar by remember {
+        mutableStateOf(-1.0)
+    }
+
+    var belowPrice by remember {
+        mutableStateOf(Double.MAX_VALUE)
+    }
+
+    val food= viewModel<FoodViewModel>()
+
+    address?.let {
+        restorent.pincode=it.pincode
+    }
+
+    val scope= rememberCoroutineScope()
+    val scaffoldState = rememberBottomSheetScaffoldState()
+    var showLocationPicker by remember {
+        mutableStateOf(false)
+    }
+    var showFilter by remember {
+        mutableStateOf(false)
+    }
+
+    var switchSearch by remember {
+        mutableStateOf(false)
+    }
+
+    //ViewModels
+   // val food= viewModel<FoodViewModel>()
+
+    LaunchedEffect(key1 = Unit){
+        restorent.recommended(0L..10L)
+    }
+
+    restorent.pincode=address?.pincode?:""
+
+    LazyColumn {
+
+
+
+        //Location
+        item {
+            Spacer(Modifier.height(50.dp))
+            //Address Location
+            Row(Modifier.fillMaxWidth().padding(5.dp).clickable { //scope.launch { scaffoldState.bottomSheetState.expand();showLocationPicker = true }
+            }, verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, "", Modifier.size(35.dp), tint = MaterialTheme.colorScheme.primary)
+
+                Column(Modifier.fillMaxWidth(0.85f)) {
+
+                    address?.let {
+                        Text(it.pincode, style = MaterialTheme.typography.titleLarge)
+                        Text(it.address, style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth().padding(end = 8.dp), maxLines = 1)
+
+                    }
+
+
+
+                    }
+
+                Text(customerInfo.name.substring(0,1), Modifier.drawBehind {
+                    // Calculate center coordinates
+                    val centerX = size.width / 2
+                    val centerY = size.height / 2-5f
+
+                    // Draw the circle
+                    drawCircle(color = Color(0xFFB2EBF2), radius = 50f, // Adjust radius as needed
+                        center = Offset(centerX, centerY)
+                    )
+
+                    // Draw the text content
+
+                }.size(50.dp).padding(5.dp), softWrap =false, style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(10.dp))
+            Image(painterResource(R.drawable.sample_banner),"",Modifier.padding(10.dp).clip(MaterialTheme.shapes.medium).fillMaxWidth().height(150.dp),contentScale = ContentScale.FillBounds)
+        }
+
+
+        item {
+      //    val list = listOf(R.drawable.common_food1,R.drawable.common_food2,R.drawable.common_food3,R.drawable.common_food4,R.drawable.common_food5,R.drawable.common_food6,R.drawable.common_food7,R.drawable.common_food8,R.drawable.common_food9,R.drawable.common_food10,R.drawable.common_food11,R.drawable.common_food12)
+            val style=MaterialTheme.typography.displaySmall
+            var resizeableText by remember { mutableStateOf(style) }
+
+
+            Text("What's On Your Mind?",modifier = Modifier.width(400.dp),softWrap = false, onTextLayout = {result->
+                if(result.didOverflowWidth){
+                    resizeableText=resizeableText.copy(fontSize = resizeableText.fontSize*0.9)
+                }
+            }, style = resizeableText)
+
+//            LazyHorizontalGrid(GridCells.Fixed(2),Modifier.height(250.dp)) {
+//                list.forEach {
+//                    item {
+//                        //                supabase.getImage(
+////                    it.imageUrl,
+////                    Modifier
+////                        .clip(MaterialTheme.shapes.extraSmall)
+////                        .fillMaxSize(),
+////                    ContentScale.Crop
+////                )
+//                        //  Text(it.name)
+//                        Image(
+//                            painterResource(it),
+//                            "",
+//                            Modifier.padding(5.dp).clip(MaterialTheme.shapes.extraSmall)
+//                                .size(100.dp, 100.dp).padding(10.dp).clickable {
+//                                    // pickFood(it.name)
+//                                },
+//                            contentScale = ContentScale.FillBounds
+//                        )
+//
+//                    }
+//                }
+//            }
+
+
+
+        }
+
+        stickyHeader {
+            Box(Modifier.fillMaxWidth().height(50.dp).background(Color.White))
+
+
+
+            Column(Modifier.background(Color.White).fillMaxWidth()) {
+
+                //Search
+                Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
+                    AssistChip({
+                      showFilter = true;scope.launch { scaffoldState.bottomSheetState.expand() }
+                    }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp, 40.dp), tint = MaterialTheme.colorScheme.primary) },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    AssistChip(
+                        {
+                            switchSearch = true
+                        },
+                        {
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) {
+                                if (searchField.isEmpty()) Text("Search Your Dishes", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) else Text(searchField)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(.70f).height(40.dp).padding(horizontal = 20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        leadingIcon = {
+                            Icon(Icons.Filled.Search, "Search", Modifier.size(25.dp), tint = MaterialTheme.colorScheme.primary)
+                        },
+                        trailingIcon = {
+
+                        })
+
+                    Column {
+                        Switch(switchVegMode, {
+                            switchVegMode = !switchVegMode
+                            //   RestaurantViewModel.vegOnly = switchVegMode
+
+                        }, Modifier.width(50.dp).height(30.dp), thumbContent = {
+                            Icon(Icons.Default.Check, "", Modifier.size(15.dp))
+                        }, colors = SwitchDefaults.colors(uncheckedBorderColor = Color.White))
+
+                        Text("Veg Only", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+
+                    }
+
+                    Row(Modifier.fillMaxWidth().height(35.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, alignment = Alignment.End)) {
+                        IconButton({
+                               settingsListner(screen.orders)
+                        }) {
+                            Icon(Icons.Default.ShoppingCart, "Cart", tint =MaterialTheme.colorScheme.primary)
+                        }
+                        if (false) IconButton({
+                             settingsListner(screen.favourite)
+                        }) {
+                            Icon(Icons.Default.FavoriteBorder ,"Cart", tint =MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
+
+
+                }
+
+                //Filter
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Spacer(Modifier.width(5.dp))
+
+
+                    val fontthisrow=MaterialTheme.typography.bodySmall
+
+                    AssistChip({
+                          newest_bool = !newest_bool
+                           restorent.enableNewest(newest_bool)
+                    }, { Text("Newest",style = fontthisrow) }, trailingIcon = {
+                        if (newest_bool) Icon(Icons.Default.Check, "")
+                    })
+
+                    AssistChip({
+                         quick_delivery_bool = !quick_delivery_bool
+                         restorent.enableQuickDelivery(quick_delivery_bool)
+                    }, { Text("Quick Delivery",style = fontthisrow) }, trailingIcon = {
+                        if (quick_delivery_bool) Icon(Icons.Default.Check, "")
+                    })
+
+                    AssistChip({
+                         showAvailable = !showAvailable
+                         restorent.enableAvailable(showAvailable)
+                         food.enableAvailable(showAvailable)
+                    }, { Text("Available",style = fontthisrow) }, trailingIcon = {
+                          if (showAvailable) Icon(Icons.Default.Check, "")
+                    })
+
+                    AssistChip({
+                        if(aboveThreeStar!=3.0) {
+                            aboveThreeStar = 3.0
+                            restorent.aboveTheStar=3.0
+                        }
+                        else{
+                            aboveThreeStar=-1.0
+                            restorent.aboveTheStar=-1.0
+                        }
+
+                    }, { Text("Above 3 Stars Hotel",style = fontthisrow) }, trailingIcon = {
+                         if (aboveThreeStar==3.0) Icon(Icons.Default.Check, "")
+                    })
+                    Spacer(Modifier.width(25.dp))
+                }
+
+                Spacer(Modifier.height(30.dp))
+            }
+
+        }
+
+
+
+        item {
+            Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                HorizontalDivider(Modifier.fillMaxWidth())
+                Text("Recommended", modifier = Modifier.fillMaxWidth(0.45f).background(Color.Unspecified).padding(10.dp),
+                    style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
+            }
+
+
+            LazyHorizontalGrid(GridCells.Fixed(2),Modifier.height(500.dp)) {
+                restorent.recommendlist.forEach {
+                    item {
+                        it.HotelItemDisplaySmall(restorentPickListner)
+                    }
+                }
+            }
+
+
+        }
+
+
+        item {
+
+            Text("All Hotels", modifier = Modifier.fillMaxWidth().padding(10.dp)
+                .drawBehind {
+                    // Calculate line coordinates
+                    val lineY = size.height / 2 // Center vertically
+                    val lineStartX = 0f
+                    val lineEndX = size.width
+                    // Draw the line
+                    drawLine(color = Color.LightGray, // Adjust color as needed
+                        start = Offset(lineStartX, lineY),
+                        end = Offset(lineEndX, lineY),
+                        strokeWidth = 2f // Adjust stroke width as needed
+                    )
+                },
+                style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
+            )
+
+            if (address != null) if (restorent.list.isNotEmpty()) restorent.list.forEach {
+                it.HotelItemDisplay(restorentPickListner)
+            }
+            else Text("Please select location")
+
+        }
+
+
+    }
+}
+
+
+
+
+
 @SuppressLint("SuspiciousIndentation")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -659,11 +946,7 @@ fun trail(){
 
 //Optimize this will be
 @Composable
-fun LocationPicker(
-    customerInfo: CustomerInfo,
-    closeAction: () -> Unit,
-    pickAddress: (Address) -> Unit,
-) {
+fun LocationPicker(customerInfo: CustomerInfo, closeAction: () -> Unit, pickAddress: (Address) -> Unit, ) {
     val scope= rememberCoroutineScope()
     var address= viewModel<RestaurantViewModel>()
 
@@ -1098,11 +1381,7 @@ fun customerItemView() {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun FoodGrid(
-    closeAction: () -> Unit,
-    restorentPickListner: (RestaurantInfo) -> Unit,
-    pickFood: (String) -> Unit,
-) {
+fun FoodGrid(closeAction: () -> Unit, restorentPickListner: (RestaurantInfo) -> Unit, pickFood: (String) -> Unit, ) {
     var list by remember { mutableStateOf(listOf<CommonFoodInfo>()) }
     var restaurant = viewModel<RestaurantViewModel>()
     var commonFood = viewModel<CommonFoodViewModel>()
@@ -1117,42 +1396,10 @@ fun FoodGrid(
             .fillMaxSize()) {
         var search by remember { mutableStateOf("") }
         Spacer(Modifier.height(25.dp))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(5.dp), horizontalArrangement = Arrangement.Start) {
+        Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
             Spacer(Modifier.width(10.dp))
 
-            OutlinedTextField(
-                search,
-                { search = it },
-                placeholder = {
-                    Text(
-                        "Search Your Food Or Hotel",
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Search,
-                        "Search",
-                        Modifier.size(30.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                },
-                shape = MaterialTheme.shapes.small,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.primary
-                ),
-                maxLines = 2,
-                textStyle = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .scale(0.80f)
-                    .fillMaxWidth(0.75f)
-                    .height(50.dp)
-            )
+            OutlinedTextField(search, { search = it }, placeholder = { Text("Search Your Food Or Hotel", color = Color.LightGray, style = MaterialTheme.typography.bodySmall) }, leadingIcon = { Icon(Icons.Default.Search, "Search", Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary) }, shape = MaterialTheme.shapes.small, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = MaterialTheme.colorScheme.primary), maxLines = 2, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.scale(0.80f).fillMaxWidth(0.75f).height(50.dp))
 
             Spacer(Modifier.width(10.dp))
             IconButton({ closeAction() }) {
@@ -1165,24 +1412,10 @@ fun FoodGrid(
         }
 
 
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(25.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Food",
-                Modifier
-                    .clickable { foodOn = !foodOn; }
-                    .width(80.dp)
-                    .border(
-                        1.dp,
-                        if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        MaterialTheme.shapes.medium
-                    )
-                    .padding(5.dp),
-                style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
-            )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+
+            Text("Food", Modifier.clickable { foodOn = !foodOn; }.width(80.dp).border(1.dp, if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+
             Text(
                 "Hotel",
                 Modifier

@@ -3,6 +3,7 @@ package com.manway.Toofoh.Screen
 import Ui.enums.Availability
 import android.annotation.SuppressLint
 import android.util.Log
+import android.widget.RatingBar
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutVertically
@@ -21,11 +22,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
@@ -35,9 +44,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -45,6 +56,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,10 +72,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -90,689 +105,763 @@ import kotlinx.coroutines.launch
 import java.lang.reflect.Array.set
 
 
-@OptIn(ExperimentalFoundationApi::class)
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "UnusedBoxWithConstraintsScope")
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-@Preview
-fun RestaurantScreen(){
-    val restorent = viewModel<RestaurantViewModel>()
-    var menuOffset by remember {
-        mutableStateOf(Offset(0f,0f))
-    }
-    var openMenu by remember {
-        mutableStateOf(false)
-    }
-    val scroll= rememberScrollState()
-    var goToMore by remember {
-        mutableStateOf(false)
-    }
+fun HotelMainDisplay(restaurantInfo: RestaurantInfo,onbackpressed: ()->Unit,onMorePicked:()->Unit,favorite:()->Unit,share:()->Unit,onTimePicked:()->Unit){
 
-    val name="Sample Nam"
-    val cuisine= listOf("sample1","sample2","sample3","sample4","sample5","sample6","sample7","sample8","sample9","sample10")
-    val estimatedDeliveryTime=30
-    val  rating=3.5f
-    val numberOfRatings=105
-    val foodList = (0..10).map {
-        FoodInfo.initialFoodInfo.copy(
-            id = it,
-            foodCategory = listOf(FoodCategory.VEG, FoodCategory.NON_VEG).random(),
-            name = "name$it",
-            dishCategory = listOf("cat1", "cat2", "cat3", "cat4").random(),
-            available_qty = (5..18).random()
-        )
-    }
-    var orderItems by remember {
-        mutableStateOf(foodList.map {
-            OrderItem(it.id.toString(),it.name,it.price,0)
-        })
-    }
-    AnimatedVisibility(goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
-        Column(Modifier.fillMaxSize()) {
-            Text("Next Hello")
-            IconButton({
-                goToMore=false
-            }){
-                Icon(Icons.Default.MoreVert, "", Modifier.size(35.dp))
-            }
-        }
-    }
-
-    AnimatedVisibility(!goToMore, enter = slideInHorizontally(), exit = slideOutVertically()) {
-        Scaffold(bottomBar = {
-            val color=Color(0xFFEC407A)
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFFFDFDFD))) {
-                Text("Add items ${orderItems.map { it.quantity }.sum()}  cost${orderItems.map { it.price*it.quantity }.sum()}", style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center), modifier = Modifier
-                    .padding(horizontal = 40.dp)
-                    .fillMaxWidth()
-                    .background(color, MaterialTheme.shapes.large)
-                    .padding(20.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.width(25.dp))
-                    TextField(
-                        value = "",
-                        onValueChange = {},
-                        trailingIcon = {
-                            IconButton({}) {
-                                Icon(
-                                    Icons.Default.Search,
-                                    "",
-                                    Modifier.size(35.dp)
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .background(
-                                Color.LightGray.copy(0.25f),
-                                MaterialTheme.shapes.large
-                            )
-                            .fillMaxWidth(0.70f),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        )
-                    )
-                    Spacer(Modifier.width(30.dp))
-                    Column(
-                        Modifier
-                            .padding(5.dp)
-                            .onGloballyPositioned { menuOffset = it.localToWindow(Offset.Zero) },
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        IconButton({
-                            openMenu = !openMenu
-                        }) {
-                            Icon(painter = painterResource(R.drawable.menu), "", Modifier.size(35.dp))
-                        }
-                        Text("Menu", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Spacer(Modifier.height(15.dp))
-            }
-
-        }, topBar = { Row(
-            Modifier
-                .background(Color.White)
-                .fillMaxWidth()
-                .height(100.dp), horizontalArrangement = Arrangement.Absolute.SpaceAround, verticalAlignment =Alignment.CenterVertically ) {
-                if (scroll.value > 320){
-                    Text(name, style = MaterialTheme.typography.titleLarge)
-                    IconButton({
-                        goToMore=true
-                    }){
-                        Text("More")
-                      // Icon(Icons.Default.MoreVert, "", Modifier.size(35.dp))
-                    }
-                }
-            }
-        }) {
-            Box(modifier = Modifier.fillMaxSize()) {
-
-                //Menu box
-                if (openMenu) Box(modifier = Modifier
-                    .offset { menuOffset.round() }
-                    .absoluteOffset(x = -100.plus(175).dp, y = -64.plus(350).dp)
-                    .zIndex(1f)
-                    .background(Color.White, MaterialTheme.shapes.extraLarge)
-                    .size(350.dp, 350.dp)) {
-                    val groupedItems = foodList.groupBy { it.dishCategory }
-
-                    LazyColumn(Modifier.padding(25.dp)) {
-                        groupedItems.forEach { (category, itemsInCategory) ->
-                            item {
-                                Text(category.toString(),Modifier.padding(5.dp), style = MaterialTheme.typography.titleMedium) // Display category header
-                            }
-                            items(itemsInCategory) { item ->
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(item.name)
-                                    Text(item.available_qty.toString())
-                                }
-                            }
-                        }
-                    }
+                   ConstraintLayout(Modifier.fillMaxWidth()) {
+                       val (back, favourite, share, more, isPureVeg, name, info, rating, ratingCount, timeing, hoteldistance) = createRefs()
+                       Icon(Icons.Default.KeyboardArrowLeft, "Back",
+                           Modifier.size(40.dp).constrainAs(back) {
+                                   top.linkTo(parent.top, 40.dp)
+                                   start.linkTo(parent.start, 10.dp)
+                               }
+                               .clickable {
+                                   onbackpressed()
+                               })
 
 
-                }
 
-                Column(
-                    Modifier
-                        .verticalScroll(scroll)
-                        .padding(top = 65.dp, start = 15.dp, end = 10.dp, bottom = 130.dp)
-                        .fillMaxSize()
-                        .background(Color.LightGray.copy(0.35f), MaterialTheme.shapes.extraLarge)) {
-                    Spacer(Modifier.height(20.dp))
-                    //Title
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
-                        Spacer(Modifier.fillMaxWidth(0.6f))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(rating.toString(), style = MaterialTheme.typography.titleMedium)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    "Person",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Text(numberOfRatings.toString(), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
+                       Icon(Icons.Default.MoreVert, "More",
+                           Modifier
+                               .size(35.dp)
+                               .constrainAs(more) {
+                                   top.linkTo(parent.top, 45.dp)
+                                   end.linkTo(parent.end, 10.dp)
+                               }
+                               .clickable {
+                                   onMorePicked()
+                               })
 
-                    //cuisine
-                    LazyRow(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
-                        .height(50.dp)
-                        .padding(end = 15.dp)) {
-                        stickyHeader {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                            ) {
-                                Spacer(Modifier.width(15.dp))
-                                Icon(
-                                    painter = painterResource(R.drawable.timer),
-                                    "Timer",
-                                    Modifier
-                                        .width(30.dp)
-                                        .padding(5.dp)
-                                )
-                                Text(
-                                    "$estimatedDeliveryTime min ",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(vertical = 10.dp)
-                                )
-                            }
-                        }
-                        item {
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                cuisine.joinToString(","),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(Modifier.width(30.dp))
-                        }
+                       Icon(
+                           Icons.Default.FavoriteBorder,
+                           "Favorite",
+                           Modifier
+                               .size(45.dp)
+                               .constrainAs(favourite) {
+                                   top.linkTo(parent.top, 40.dp)
+                                   end.linkTo(more.start, 10.dp)
+                               }
+                               .padding(10.dp)
+                               .clickable {
+                                   favorite()
+                               })
 
-                    }
+                       Icon(Icons.Default.Share, "Share",
+                           Modifier
+                               .size(45.dp)
+                               .constrainAs(share) {
+                                   top.linkTo(parent.top, 40.dp)
+                                   end.linkTo(favourite.start, 10.dp)
+                               }
+                               .padding(10.dp)
+                               .clickable {
+                                   share()
+                               })
 
-                    Text(
-                        "Menu",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
-                    //Filter
-                  //  Text(orderItems.filter { it.quantity>0 }.joinToString { "${it.name} x ${it.quantity}" })
-                    foodList.forEach {
-                        it.FoodItem { order ->
-                            orderItems = orderItems.map {
-                                if (order.id.toString() == it.id) order else it
-                            }
-                        }
-                    }
+                       if (restaurantInfo.pureVeg) Image(
+                           painterResource(R.drawable.pure_veg),
+                           "Pure Veg",
+                           Modifier
+                               .constrainAs(isPureVeg) {
+                                   top.linkTo(back.bottom, 0.dp)
+                                   start.linkTo(parent.start, 10.dp)
+                               }
+                               .size(75.dp)
+                               .padding(10.dp)
+                               .clickable {
 
-                    }
+                               })
 
-                }
+                       Text(
+                           restaurantInfo.name,
+                           modifier = Modifier
+                               .fillMaxWidth(0.70f)
+                               .constrainAs(name) {
+                                   top.linkTo(info.top)
+                                   start.linkTo(back.start, 10.dp)
+                                   end.linkTo(info.start, 10.dp)
+                               }
+                               .padding(end = 5.dp),
+                           maxLines = 3,
+                           style = MaterialTheme.typography.titleLarge
+                       )
+                       Icon(Icons.Outlined.Info, "Info",
+                           Modifier
+                               .constrainAs(info) {
+                                   top.linkTo(back.bottom,if(restaurantInfo.pureVeg) 70.dp else 10.dp)
+                                   end.linkTo(rating.start, 10.dp)
+                               }
+                               .size(45.dp)
+                               .padding(10.dp))
+                       Text(
+                           "${restaurantInfo.rating} ★",
+                           Modifier
+                               .constrainAs(rating) {
+                                   top.linkTo(back.bottom, 70.dp)
+                                   end.linkTo(parent.end, 10.dp)
+                               }
+                               .padding(5.dp)
+                               .background(
+                                   color = Color(0xFF00897B),
+                                   MaterialTheme.shapes.extraSmall
+                               )
+                               .padding(horizontal = 5.dp, vertical = 6.dp),
+                           color = Color.White,
+                           style = MaterialTheme.typography.titleSmall
+                       )
+                       Text("${restaurantInfo.numberOfRatings} ratings",
+                           style = MaterialTheme.typography.bodySmall,
+                           textDecoration = TextDecoration.Underline,
+                           modifier = Modifier.constrainAs(ratingCount) {
+                               top.linkTo(rating.bottom, 5.dp)
+                               end.linkTo(rating.end)
+                               start.linkTo(rating.start)
+                           }
+                       )
 
-            }
-        }
+                       /**GPS**/
 
-    }
+                       /**GPS**/
+                       Row(
+                           Modifier
+                               .padding(8.dp)
+                               .fillMaxWidth()
+                               .constrainAs(hoteldistance) {
+                                   top.linkTo(name.bottom, 10.dp)
+                                   start.linkTo(back.start, 10.dp)
+                               }) {
+                           Icon(Icons.Outlined.LocationOn, "Distance")
+                           Text("13.5Km", style =MaterialTheme.typography.bodyMedium )
+                           Text(".Saravanampatty", style =MaterialTheme.typography.bodyMedium )
+                       }
+
+                       Row(Modifier.padding(8.dp)
+                               .constrainAs(timeing) {
+                                   top.linkTo(hoteldistance.bottom, 10.dp)
+                                   start.linkTo(back.start, 10.dp)
+                               }
+                               .clickable {
+                                   onTimePicked()
+                               }) {
+                           Icon(Icons.Outlined.DateRange, "Open Time range")
+                           Spacer(Modifier.width(10.dp))
+                           Text("Today. 10.30 PM -11 AM", style =MaterialTheme.typography.bodyMedium)
+                       }
+
+                   }
+
+}
+
+//@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+//@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "MutableCollectionMutableState")
+//@Composable
+//fun RestaurantScreen2(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo) {
+//
+//    val restorent = viewModel<RestaurantViewModel>()
+//
+//    restaurantInfo.apply {
+//    var menuOffset by remember {
+//        mutableStateOf(Offset(0f,0f))
+//    }
+//    var openMenu by remember {
+//        mutableStateOf(false)
+//    }
+//    val scroll= rememberScrollState()
+//    var goToMore by remember {
+//        mutableStateOf(false)
+//    }
+//
+//    var foodList by remember {
+//        mutableStateOf(listOf<FoodInfo>())
+//    }
+//
+//        var search by remember {
+//            mutableStateOf("")
+//        }
+//        var switchVegMode by remember {
+//            mutableStateOf(false to false)
+//        }
+//
+//        var sortByCost by remember {
+//            mutableStateOf(false)
+//        }
+//
+//        var orderItems by remember { mutableStateOf(arrayListOf<OrderItem>()) }
+//
+//
+//        val scope = rememberCoroutineScope()
+//        var scaffoldState = rememberBottomSheetScaffoldState()
+//        var openBottomSheet by remember {
+//            mutableStateOf(false)
+//        }
+//        if (orderItems.filter { it.quantity > 0 }.isNotEmpty()) {
+//            openBottomSheet = true
+//            scope.launch {
+//                scaffoldState.bottomSheetState.expand()
+//            }
+//        } else {
+//            openBottomSheet = false
+//        }
+//
+//        var openRecptScreen by remember {
+//            mutableStateOf(false)
+//        }
+//
+//
+//
+//        var _foodList= flow<List<FoodInfo>> {
+//            while (true){
+//                emit(supabase.from(Table.FoodInfo.name).select{
+//                    filter {
+//                        eq("restaurantChannelId",restaurantInfo.channel_id?:"")
+//                    }
+//                }.decodeList())
+//                delay(1000L)
+//            }
+//        }
+//
+//        LaunchedEffect(key1 = Unit) {
+//            while (true) {
+//                _foodList.collect {
+//                    foodList = it.filter {
+//                        search.isEmpty() || it.name.contains(search, true) &&
+//                                it.available_qty > 0 && it.isAvailable == Availability.Available
+//                                && if (switchVegMode.first && switchVegMode.second) it.foodCategory == FoodCategory.VEG || it.foodCategory == FoodCategory.NON_VEG else if (switchVegMode.first) it.foodCategory == FoodCategory.VEG else if (switchVegMode.second) it.foodCategory == FoodCategory.NON_VEG else true
+//
+//                    }.sortedBy {
+//                        if (sortByCost) it.name else it.price.toString()
+//                    }
+//
+//                }
+//                val tempList = ArrayList<OrderItem>()
+//                tempList.addAll(foodList.map {
+//                    OrderItem(it.id.toString(), it.name, it.price, 9, it.dishCategory, "")
+//                })
+//                delay(1000L)
+//
+//            }
+//
+//        }
+//
+//        LaunchedEffect(key1 = foodList) {
+//            orderItems =
+//                java.util.ArrayList<OrderItem>().apply {
+//                    addAll(orderItems)
+//                    foodList.forEach {
+//                        if (!orderItems.map { it.id }.contains(it.id.toString())) {
+//                            add(OrderItem(it.id.toString(), it.name, it.price, 0))
+//
+//                        }
+//                    }
+//                    removeIf {
+//                        !foodList.map { it.id.toString() }.contains(it.id)
+//                    }
+//                    //when update
+//
+//                    Log.e("OrderItems", (foodList.size).toString())
+//
+//                }
+//        }
+//
+//
+//
+//
+//
+//    AnimatedVisibility(goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
+//        Column(Modifier.fillMaxSize()) {
+//            Text("Next Hello")
+//            IconButton({
+//                goToMore=false
+//            }){
+//                Icon(Icons.Default.MoreVert, "", Modifier.size(35.dp))
+//            }
+//        }
+//    }
+//    AnimatedVisibility(!goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
+//        BottomSheetScaffold({
+//                //Bottom Sheet Content
+//                if (openBottomSheet) if (orderItems.isNotEmpty()) {
+//                    Column(Modifier.fillMaxWidth()) {
+//
+//                        if (openRecptScreen) OrderReceiptScreen2(
+//                            customerInfo,
+//                            foodList,
+//                            orderItems.filter { it.quantity > 0 })
+//
+//                    }
+//                }
+//            }, sheetSwipeEnabled = false,
+//            sheetContainerColor = Color.White,
+//            sheetPeekHeight = 0.dp, scaffoldState = scaffoldState, topBar = {
+//                Row(
+//                    Modifier
+//                        .background(Color.White)
+//                        .fillMaxWidth()
+//                        .height(30.dp),
+//                    horizontalArrangement = Arrangement.Absolute.SpaceAround,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    if (scroll.value > 150) {
+//                Text(name, style = MaterialTheme.typography.titleLarge)
+//                        if (false) IconButton({
+//                    goToMore=true
+//                }){
+//                    Text("More")
+//                    // Icon(Icons.Default.MoreVert, "", Modifier.size(35.dp))
+//                }
+//            }
+//        }
+//        }) {
+//            Box(modifier = Modifier.fillMaxSize()) {
+//
+//                //Menu box
+//                if (openMenu) Box(modifier = Modifier
+//                    .offset { menuOffset.round() }
+//                    .absoluteOffset(x = -100.plus(175).dp, y = -64.plus(350).dp)
+//                    .zIndex(1f)
+//                    .background(Color.White, MaterialTheme.shapes.extraLarge)
+//                    .size(350.dp, 350.dp)) {
+//                    val groupedItems = foodList.groupBy { it.dishCategory }
+//
+//                    LazyColumn(Modifier.padding(25.dp)) {
+//                        groupedItems.forEach { (category, itemsInCategory) ->
+//                            item {
+//                                Text(category.toString(),Modifier.padding(5.dp), style = MaterialTheme.typography.titleMedium) // Display category header
+//                            }
+//                            items(itemsInCategory) { item ->
+//                                Row(
+//                                    Modifier
+//                                        .fillMaxWidth()
+//                                        .padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+//                                    Text(item.name)
+//                                    Text(item.available_qty.toString())
+//                                }
+//                            }
+//                        }
+//                    }
+//
+//
+//                }
+//
+//                Column(Modifier.padding(top = 45.dp, start = 15.dp, end = 10.dp, bottom = 70.dp).fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.extraLarge)) {
+//                    Spacer(Modifier.height(20.dp))
+//                    //Title
+//
+//                    if (orderItems.map { it.quantity > 0 }.contains(true)) Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+//                        Text(
+//                            "Added items ${
+//                                orderItems.map { it.quantity }.sum()
+//                            }  cost${orderItems.map { it.price * it.quantity }.sum()}",
+//                            color = MaterialTheme.colorScheme.primary,
+//                            style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
+//                            modifier = Modifier.padding(horizontal = 20.dp)
+//                        )
+//                        TextButton({
+//                            openRecptScreen = !openRecptScreen
+//                        }) {
+//                            Text(if (!openRecptScreen) "Proceed" else "Close")
+//                        }
+//                    }
+//
+//                    Column(
+//                        Modifier
+//                            .fillMaxHeight(0.90f)
+//                            .verticalScroll(scroll)
+//                            .fillMaxWidth()
+//                            .padding(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)
+//                    ) {
+//                        Text(restaurantInfo.name, style = MaterialTheme.typography.titleLarge)
+//                        //Rating
+//                        val decimal = restaurantInfo.rating - Math.floor(restaurantInfo.rating)
+//                        Row(Modifier) {
+//                            Text(
+//                                restaurantInfo.rating.toString(),
+//                                style = MaterialTheme.typography.bodyMedium
+//                            )
+//                            Spacer(Modifier.width(10.dp))
+//                            for (i in 1..Math.floor(restaurantInfo.rating).toInt()) {
+//                                Icon(
+//                                    Icons.Default.Star,
+//                                    "",
+//                                    tint = Color.Yellow,
+//                                    modifier = Modifier.size(10.dp)
+//                                )
+//                                if (i == Math.floor(restaurantInfo.rating)
+//                                        .toInt() && decimal != 0.0
+//                                ) Icon(
+//                                    painterResource(R.drawable.half_star),
+//                                    "",
+//                                    tint = Color.Yellow,
+//                                    modifier = Modifier.size(10.dp)
+//                                )
+//                            }
+//                        }
+//                        Row(
+//                            verticalAlignment = Alignment.CenterVertically,
+//                            horizontalArrangement = Arrangement.Center
+//                        ) {
+//                            Icon(Icons.Default.Person, "Person")
+//                            Text(
+//                                numberOfRatings.toString(),
+//                                style = MaterialTheme.typography.bodySmall
+//                            )
+//                        }
+//                        //cuisine
+//                        LazyRow(
+//                            verticalAlignment = Alignment.CenterVertically,
+//                            modifier = Modifier
+//                                .height(50.dp)
+//                                .padding(end = 15.dp)
+//                        ) {
+//                            stickyHeader {
+//                                Row(
+//                                    verticalAlignment = Alignment.CenterVertically,
+//                                    modifier = Modifier
+//                                ) {
+//                                    Spacer(Modifier.width(15.dp))
+//                                    Icon(
+//                                        painter = painterResource(R.drawable.timer),
+//                                        "Timer",
+//                                        tint = MaterialTheme.colorScheme.primary,
+//                                        modifier = Modifier
+//                                            .background(
+//                                                Color.White,
+//                                                MaterialTheme.shapes.small
+//                                            )
+//                                            .width(30.dp)
+//                                            .padding(5.dp)
+//                                    )
+//                                    Text(
+//                                        "$estimatedDeliveryTime min",
+//                                        style = MaterialTheme.typography.bodyLarge,
+//                                        modifier = Modifier.padding(vertical = 10.dp)
+//                                    )
+//                                    Spacer(Modifier.width(20.dp))
+//                                }
+//                            }
+//                            item {
+//                                Spacer(Modifier.width(10.dp))
+//                                Text(
+//                                    cuisine.joinToString(","),
+//                                    style = MaterialTheme.typography.bodyMedium
+//                                )
+//                                Spacer(Modifier.width(30.dp))
+//                            }
+//
+//                        }
+//
+//                        Spacer(Modifier.height(10.dp))
+//
+//                        //Filter
+//                        Row(
+//                            verticalAlignment = Alignment.CenterVertically,
+//                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+//                        ) {
+//
+//                            AssistChip(
+//                                {
+//                                    switchVegMode = switchVegMode.copy(first = !switchVegMode.first)
+//                                },
+//                                { Text("Veg", style = MaterialTheme.typography.bodyMedium) },
+//                                trailingIcon = {
+//                                    if (switchVegMode.first) Icon(Icons.Default.Check, "")
+//                                })
+//
+//                            AssistChip(
+//                                {
+//                                    switchVegMode =
+//                                        switchVegMode.copy(second = !switchVegMode.second)
+//                                },
+//                                { Text("Non Veg", style = MaterialTheme.typography.bodyMedium) },
+//                                trailingIcon = {
+//                                    if (switchVegMode.second) Icon(Icons.Default.Check, "")
+//                                })
+//
+//                            AssistChip(
+//                                {
+//                                    sortByCost = !sortByCost
+//                                },
+//                                {
+//                                    Text(
+//                                        "Order By Cost",
+//                                        style = MaterialTheme.typography.bodyMedium
+//                                    )
+//                                },
+//                                trailingIcon = {
+//                                    if (sortByCost) Icon(Icons.Default.Check, "")
+//                                })
+//
+//
+//                        }
+//
+//                        foodList.forEach {
+//                            it.FoodItem { order ->
+//                                orderItems = arrayListOf<OrderItem>().apply {
+//                                    addAll(orderItems.map {
+//                                        if (order.id == it.id) order else it
+//                                    })
+//                                }
+//
+//                            }
+//                        }
+//
+//                    }
+//
+//                    val color = Color(0xFFEC407A)
+//                    Spacer(Modifier.height(15.dp))
+//                    Column(
+//                        Modifier
+//                            .fillMaxWidth()
+//                            .background(Color(0xFFFDFDFD))) {
+//                        Row(
+//                            Modifier.fillMaxWidth(),
+//                            horizontalArrangement = Arrangement.Start,
+//                            verticalAlignment = Alignment.CenterVertically
+//                        ) {
+//                            Spacer(Modifier.width(25.dp))
+//                            OutlinedTextField(search,
+//                                { search = it },
+//                                placeholder = {
+//                                    Text(
+//                                        "Search Your Food",
+//                                        color = Color.LightGray,
+//                                        style = MaterialTheme.typography.bodySmall
+//                                    )
+//                                },
+//                                leadingIcon = {
+//                                    Icon(
+//                                        Icons.Default.Search,
+//                                        "Search",
+//                                        Modifier.size(30.dp),
+//                                        tint = MaterialTheme.colorScheme.primary
+//                                    )
+//                                },
+//                                shape = MaterialTheme.shapes.small,
+//                                colors = OutlinedTextFieldDefaults.colors(
+//                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+//                                    unfocusedBorderColor = MaterialTheme.colorScheme.primary
+//                                ),
+//                                maxLines = 2,
+//                                textStyle = MaterialTheme.typography.bodySmall,
+//                                modifier = Modifier
+//                                    .scale(0.80f)
+//                                    .fillMaxWidth(0.75f)
+//                                    .height(50.dp)
+//                            )
+//                            Spacer(Modifier.width(30.dp))
+//                            Column(
+//                                Modifier
+//                                    .padding(5.dp)
+//                                    .onGloballyPositioned {
+//                                        menuOffset = it.localToWindow(Offset.Zero)
+//                                    }, horizontalAlignment = Alignment.CenterHorizontally
+//                            ) {
+//                                IconButton({
+//                                    openMenu = !openMenu
+//                                }) {
+//                                    Icon(
+//                                        painter = painterResource(R.drawable.menu),
+//                                        "",
+//                                        Modifier.size(35.dp)
+//                                    )
+//                                }
+//                                Text("Menu", style = MaterialTheme.typography.bodySmall)
+//                            }
+//                        }
+//                        Spacer(Modifier.height(15.dp))
+//                    }
+//
+//
+//                    //  Text(orderItems.filter { it.quantity>0 }.joinToString { "${it.name} x ${it.quantity}" })
+//
+//
+//                }
+//
+//            }
+//
+//        }
+//    }
+//        }
+//}
+
+
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "MutableCollectionMutableState")
 @Composable
-fun RestaurantScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo) {
-
-    val restorent = viewModel<RestaurantViewModel>()
-
-    restaurantInfo.apply {
-    var menuOffset by remember {
-        mutableStateOf(Offset(0f,0f))
-    }
-    var openMenu by remember {
-        mutableStateOf(false)
-    }
-    val scroll= rememberScrollState()
-    var goToMore by remember {
-        mutableStateOf(false)
-    }
+fun RestaurantScreen(customerInfo: CustomerInfo, orderItems: MutableState<List<OrderItem>>, restaurantInfo: RestaurantInfo){
 
     var foodList by remember {
         mutableStateOf(listOf<FoodInfo>())
     }
 
-        var search by remember {
-            mutableStateOf("")
-        }
-        var switchVegMode by remember {
-            mutableStateOf(false to false)
-        }
-
-        var sortByCost by remember {
-            mutableStateOf(false)
-        }
-
-        var orderItems by remember { mutableStateOf(arrayListOf<OrderItem>()) }
-
-
-        val scope = rememberCoroutineScope()
-        var scaffoldState = rememberBottomSheetScaffoldState()
-        var openBottomSheet by remember {
-            mutableStateOf(false)
-        }
-        if (orderItems.filter { it.quantity > 0 }.isNotEmpty()) {
-            openBottomSheet = true
-            scope.launch {
-                scaffoldState.bottomSheetState.expand()
-            }
-        } else {
-            openBottomSheet = false
-        }
-
-        var openRecptScreen by remember {
-            mutableStateOf(false)
-        }
+    var openBottomSheet by remember {
+        mutableStateOf(false)
+    }
 
 
 
+    LaunchedEffect(key1 = Unit){
         var _foodList= flow<List<FoodInfo>> {
-            while (true){
-                emit(supabase.from(Table.FoodInfo.name).select{
+            while (true) {
+                emit(supabase.from(Table.FoodInfo.name).select {
                     filter {
-                        eq("restaurantChannelId",restaurantInfo.channel_id?:"")
+                        eq("restaurantChannelId", restaurantInfo.channel_id ?: "")
                     }
                 }.decodeList())
-                delay(1000L)
+                delay(250)
             }
         }
-
-        LaunchedEffect(key1 = Unit) {
-            while (true) {
-                _foodList.collect {
-                    foodList = it.filter {
-                        search.isEmpty() || it.name.contains(search, true) &&
-                                it.available_qty > 0 && it.isAvailable == Availability.Available
-                                && if (switchVegMode.first && switchVegMode.second) it.foodCategory == FoodCategory.VEG || it.foodCategory == FoodCategory.NON_VEG else if (switchVegMode.first) it.foodCategory == FoodCategory.VEG else if (switchVegMode.second) it.foodCategory == FoodCategory.NON_VEG else true
-
-                    }.sortedBy {
-                        if (sortByCost) it.name else it.price.toString()
-                    }
-
-                }
-                val tempList = ArrayList<OrderItem>()
-                tempList.addAll(foodList.map {
-                    OrderItem(it.id.toString(), it.name, it.price, 9)
-                })
-                delay(1000L)
-
-            }
-
+        _foodList.collect{
+            foodList=it
         }
 
-        LaunchedEffect(key1 = foodList) {
-            orderItems =
-                java.util.ArrayList<OrderItem>().apply {
-                    addAll(orderItems)
-                    foodList.forEach {
-                        if (!orderItems.map { it.id }.contains(it.id.toString())) {
-                            add(OrderItem(it.id.toString(), it.name, it.price, 0))
-
-                        }
-                    }
-                    removeIf {
-                        !foodList.map { it.id.toString() }.contains(it.id)
-                    }
-                    //when update
-
-                    Log.e("OrderItems", (foodList.size).toString())
-
-                }
-        }
-
-
-
-
-
-    AnimatedVisibility(goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
-        Column(Modifier.fillMaxSize()) {
-            Text("Next Hello")
-            IconButton({
-                goToMore=false
-            }){
-                Icon(Icons.Default.MoreVert, "", Modifier.size(35.dp))
-            }
-        }
     }
-    AnimatedVisibility(!goToMore, enter = slideInHorizontally(),exit = slideOutVertically()) {
-        BottomSheetScaffold(
-            {
-                //Bottom Sheet Content
-                if (openBottomSheet) if (orderItems.isNotEmpty()) {
-                    Column(Modifier.fillMaxWidth()) {
 
-                        if (openRecptScreen) OrderReceiptScreen2(
-                            customerInfo,
-                            foodList,
-                            orderItems.filter { it.quantity > 0 })
+   val onbackpressed: ()->Unit={}
+    val onMorePicked:()->Unit={}
+    val favorite:()->Unit={}
+    val share:()->Unit={}
+    val onTimePicked:()->Unit={}
 
-                    }
+
+    Scaffold (
+        Modifier.fillMaxWidth()
+        , bottomBar = {
+            Row(Modifier.fillMaxWidth().height(100.dp).background(Color.White).padding(10.dp)) {
+                Text("Added Items ${orderItems.value.map { it.quantity }.sum()}",Modifier.fillMaxWidth(0.55f))
+                Button({
+                   openBottomSheet=true
+                }, shape = MaterialTheme.shapes.medium, modifier =Modifier.fillMaxWidth()){
+                    Text("Cost ${orderItems.value.map { it.total() }.sum()}")
                 }
-            }, sheetSwipeEnabled = false,
-            sheetContainerColor = Color.White,
-            sheetPeekHeight = 0.dp, scaffoldState = scaffoldState, topBar = {
-                Row(
-                    Modifier
-                        .background(Color.White)
-                        .fillMaxWidth()
-                        .height(30.dp),
-                    horizontalArrangement = Arrangement.Absolute.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (scroll.value > 150) {
-                Text(name, style = MaterialTheme.typography.titleLarge)
-                        if (false) IconButton({
-                    goToMore=true
-                }){
-                    Text("More")
-                    // Icon(Icons.Default.MoreVert, "", Modifier.size(35.dp))
-                }
+
             }
         }
-        }) {
-            Box(modifier = Modifier.fillMaxSize()) {
 
-                //Menu box
-                if (openMenu) Box(modifier = Modifier
-                    .offset { menuOffset.round() }
-                    .absoluteOffset(x = -100.plus(175).dp, y = -64.plus(350).dp)
-                    .zIndex(1f)
-                    .background(Color.White, MaterialTheme.shapes.extraLarge)
-                    .size(350.dp, 350.dp)) {
-                    val groupedItems = foodList.groupBy { it.dishCategory }
+    ) {
 
-                    LazyColumn(Modifier.padding(25.dp)) {
-                        groupedItems.forEach { (category, itemsInCategory) ->
-                            item {
-                                Text(category.toString(),Modifier.padding(5.dp), style = MaterialTheme.typography.titleMedium) // Display category header
-                            }
-                            items(itemsInCategory) { item ->
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(item.name)
-                                    Text(item.available_qty.toString())
-                                }
-                            }
-                        }
-                    }
+        var scope= rememberCoroutineScope()
 
+        LazyColumn (Modifier.fillMaxSize()) {
+            item {
+                HotelMainDisplay(
+                    restaurantInfo,
+                    onbackpressed,
+                    onMorePicked,
+                    favorite,
+                    share,
+                    onTimePicked
+                )
+
+                var vegOn by remember {
+                   mutableStateOf(false)
+                }
+
+                var nonVegOn by remember {
+                    mutableStateOf(false)
+                }
+
+                Row(Modifier.fillMaxWidth()) {
+                    AssistChip({
+                        vegOn= !vegOn
+                    }, { Text("Veg") }, trailingIcon = {
+                        if (vegOn) Icon(Icons.Default.Check, "")
+                    })
+                    AssistChip({
+                       nonVegOn= !nonVegOn
+                    }, { Text("Non veg") }, trailingIcon = {
+                        if (nonVegOn) Icon(Icons.Default.Check, "")
+                    })
 
                 }
 
-                Column(
-                    Modifier
-                        .padding(top = 45.dp, start = 15.dp, end = 10.dp, bottom = 70.dp)
-                        .fillMaxSize()
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.shapes.extraLarge
-                        )
-                ) {
-                    Spacer(Modifier.height(20.dp))
-                    //Title
-
-                    if (orderItems.map { it.quantity > 0 }.contains(true)) Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Added items ${
-                                orderItems.map { it.quantity }.sum()
-                            }  cost${orderItems.map { it.price * it.quantity }.sum()}",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
-                            modifier = Modifier.padding(horizontal = 20.dp)
-                        )
-                        TextButton({
-                            openRecptScreen = !openRecptScreen
-                        }) {
-                            Text(if (!openRecptScreen) "Proceed" else "Close")
+                foodList.filter { (it.foodCategory==FoodCategory.VEG||!vegOn)&&(it.foodCategory==FoodCategory.NON_VEG||!nonVegOn) }.forEach {
+                    it.FoodItemDisplay(orderItems) {
+                        if (!orderItems.value.map { it.id }.contains(it.id)) orderItems.value =
+                            orderItems.value.plus(it)
+                        else orderItems.value = orderItems.value.map { item ->
+                            if (item.id == it.id) item.copy(quantity = it.quantity) else item
                         }
                     }
+                }
 
-                    Column(
-                        Modifier
-                            .fillMaxHeight(0.90f)
-                            .verticalScroll(scroll)
-                            .fillMaxWidth()
-                            .padding(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(restaurantInfo.name, style = MaterialTheme.typography.titleLarge)
-                        //Rating
-                        val decimal = restaurantInfo.rating - Math.floor(restaurantInfo.rating)
-                        Row(Modifier) {
-                            Text(
-                                restaurantInfo.rating.toString(),
+
+                if (openBottomSheet) ModalBottomSheet({}) {
+                    Column(Modifier.fillMaxSize()) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            IconButton({
+                                openBottomSheet = false
+
+                            }) {
+                                Icon(Icons.Default.Clear, "Close Bottom Sheet")
+                            }
+                        }
+
+                        var orderItemsGroup = orderItems.value.groupBy { it.restaurantChannelId }
+
+                        orderItemsGroup.forEach { (id, items) ->
+                            var resName by remember {
+                                mutableStateOf("")
+                            }
+                            scope.launch {
+                                resName = supabase.from(Table.RestaurantInfo.name).select {
+                                    filter {
+                                        eq("channel_id", id)
+                                    }
+                                }.decodeList<RestaurantInfo>().first().name
+                            }
+
+
+                            if (items.filter { it.quantity > 0 }.size > 0) Text(
+                                "▶ " + resName,
+                                Modifier.fillMaxWidth().padding(5.dp),
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                            Spacer(Modifier.width(10.dp))
-                            for (i in 1..Math.floor(restaurantInfo.rating).toInt()) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    "",
-                                    tint = Color.Yellow,
-                                    modifier = Modifier.size(10.dp)
-                                )
-                                if (i == Math.floor(restaurantInfo.rating)
-                                        .toInt() && decimal != 0.0
-                                ) Icon(
-                                    painterResource(R.drawable.half_star),
-                                    "",
-                                    tint = Color.Yellow,
-                                    modifier = Modifier.size(10.dp)
-                                )
-                            }
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Person, "Person")
-                            Text(
-                                numberOfRatings.toString(),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        //cuisine
-                        LazyRow(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .height(50.dp)
-                                .padding(end = 15.dp)
-                        ) {
-                            stickyHeader {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                ) {
-                                    Spacer(Modifier.width(15.dp))
-                                    Icon(
-                                        painter = painterResource(R.drawable.timer),
-                                        "Timer",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .background(
-                                                Color.White,
-                                                MaterialTheme.shapes.small
-                                            )
-                                            .width(30.dp)
-                                            .padding(5.dp)
-                                    )
-                                    Text(
-                                        "$estimatedDeliveryTime min",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        modifier = Modifier.padding(vertical = 10.dp)
-                                    )
-                                    Spacer(Modifier.width(20.dp))
+                            items.filter { it.quantity > 0 }.forEach { food ->
+                                food.OrderItemDisplay() { food1 ->
+                                    Log.e("OrderItems", orderItems.value.toString())
+                                    orderItems.value = orderItems.value.map {
+                                        if (it.id == food1.id) food1 else it
+                                    }
                                 }
                             }
-                            item {
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    cuisine.joinToString(","),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Spacer(Modifier.width(30.dp))
-                            }
-
                         }
 
-                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            orderItems.value.map { it.total() }.sum().toString(),
+                            style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Right),
+                            modifier = Modifier.fillMaxWidth().padding(25.dp)
+                        )
 
-                        //Filter
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-
-                            AssistChip(
-                                {
-                                    switchVegMode = switchVegMode.copy(first = !switchVegMode.first)
-                                },
-                                { Text("Veg", style = MaterialTheme.typography.bodyMedium) },
-                                trailingIcon = {
-                                    if (switchVegMode.first) Icon(Icons.Default.Check, "")
-                                })
-
-                            AssistChip(
-                                {
-                                    switchVegMode =
-                                        switchVegMode.copy(second = !switchVegMode.second)
-                                },
-                                { Text("Non Veg", style = MaterialTheme.typography.bodyMedium) },
-                                trailingIcon = {
-                                    if (switchVegMode.second) Icon(Icons.Default.Check, "")
-                                })
-
-                            AssistChip(
-                                {
-                                    sortByCost = !sortByCost
-                                },
-                                {
-                                    Text(
-                                        "Order By Cost",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (sortByCost) Icon(Icons.Default.Check, "")
-                                })
-
-
-                        }
-
-                        foodList.forEach {
-                            it.FoodItem { order ->
-                                orderItems = arrayListOf<OrderItem>().apply {
-                                    addAll(orderItems.map {
-                                        if (order.id == it.id) order else it
-                                    })
-                                }
-
-                            }
-                        }
+//                    orderItems.value.filter { it.quantity>0 }.forEach { food->
+//                        foodList.find { it.id.toString()==food.id }?.let {
+//                            food.OrderItemDisplay(){ food1->
+//                                orderItems.value=orderItems.value.map {
+//                                    if(it.id==food1.id) food1  else it
+//                                }
+//                            }
+//                        }
+//                    }
 
                     }
-
-                    val color = Color(0xFFEC407A)
-                    Spacer(Modifier.height(15.dp))
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFFDFDFD))) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Start,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Spacer(Modifier.width(25.dp))
-                            OutlinedTextField(search,
-                                { search = it },
-                                placeholder = {
-                                    Text(
-                                        "Search Your Food",
-                                        color = Color.LightGray,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        "Search",
-                                        Modifier.size(30.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                shape = MaterialTheme.shapes.small,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.primary
-                                ),
-                                maxLines = 2,
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .scale(0.80f)
-                                    .fillMaxWidth(0.75f)
-                                    .height(50.dp)
-                            )
-                            Spacer(Modifier.width(30.dp))
-                            Column(
-                                Modifier
-                                    .padding(5.dp)
-                                    .onGloballyPositioned {
-                                        menuOffset = it.localToWindow(Offset.Zero)
-                                    }, horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                IconButton({
-                                    openMenu = !openMenu
-                                }) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.menu),
-                                        "",
-                                        Modifier.size(35.dp)
-                                    )
-                                }
-                                Text("Menu", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        Spacer(Modifier.height(15.dp))
-                    }
-
-
-                    //  Text(orderItems.filter { it.quantity>0 }.joinToString { "${it.name} x ${it.quantity}" })
-
-
                 }
-
             }
-
         }
     }
-        }
+
+
+
 }
 
+
+
+
+
     @Composable
-    fun FoodInfo.FoodItem(orderCountChange: (OrderItem) -> Unit) {
+    fun FoodInfo.FoodItem(restaurantInfo: RestaurantInfo,orderCountChange: (OrderItem) -> Unit) {
         Column(
             Modifier
                 .padding(horizontal = 0.dp)
@@ -797,14 +886,16 @@ fun RestaurantScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo)
                         id.toString(),
                         name,
                         price,
-                        Math.min(orderCount, available_qty)
+                        Math.min(orderCount, available_qty),
+                        foodCategory,
+                        restaurantInfo.channel_id?:""
                     )
                 )
 
             }
 
             LaunchedEffect(key1 = orderCount) {
-                orderCountChange(OrderItem(id.toString(), name, price, orderCount))
+                orderCountChange(OrderItem(id.toString(), name, price, orderCount, foodCategory, restaurantInfo.channel_id?:""))
             }
 
             BoxWithConstraints(
@@ -926,12 +1017,36 @@ fun RestaurantScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo)
 
     }
 
+@Composable
+fun StarRatingAndroidView(
+    rating: Float,
+    maxRating: Int = 5,
+    onRatingChange: (Float) -> Unit,
+) {
+    AndroidView(
+        factory = { context ->
+            RatingBar(context).apply {
+                numStars = maxRating
+                stepSize = 0.1f
+                onRatingBarChangeListener = RatingBar.OnRatingBarChangeListener { _, rating, fromUser ->
+                        if (fromUser) {
+                            onRatingChange(rating)
+                        }
+                    }
+            }
+        },
+        update = { view ->
+            view.rating = rating
+        }
+    )
+}
+
 
 @Composable
 fun OrderReceiptScreen2(
     customerInfo: CustomerInfo,
     foodInfos: List<FoodInfo>,
-    orderItems: List<OrderItem>,
+    orderItems: List<OrderItem>
 ) {
 
     val scope = rememberCoroutineScope()

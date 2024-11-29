@@ -12,6 +12,7 @@ import com.manway.Toofoh.data.FoodCategory
 import com.manway.Toofoh.dp.CouldFunction
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
+import com.manway.toffoh.admin.data.FoodInfo
 import com.manway.toffoh.admin.data.RestaurantInfo
 import io.github.jan.supabase.auth.PostgrestFilterDSL
 import io.github.jan.supabase.postgrest.from
@@ -36,8 +37,7 @@ class RestaurantViewModel: ViewModel() {
             Columns.raw(""" *, ${Table.FoodInfo.name}!inner ( "name","price","updated_at","isAvailable","foodCategory","foodType") """.trimIndent())
         while (true) {
             try {
-            emit(supabase.from(Table.RestaurantInfo.name)
-                .select(columns, filter).decodeList<RestaurantInfo>()
+            emit(supabase.from(Table.RestaurantInfo.name).select(columns, filter).decodeList<RestaurantInfo>()
             )
             } catch (e: Exception) {
 
@@ -167,7 +167,33 @@ class RestaurantViewModel: ViewModel() {
     companion object {
         var vegOnly = false
     }
+    var recommendlist by mutableStateOf(listOf<RestaurantInfo>())
+    suspend fun recommended( range: LongRange){
+        val _recommendlist=  flow{
+            while (true) {
+                try {
+                    emit(supabase.from(Table.RestaurantInfo.name).select(){
+                        filter {
+                            pincode?.let {
+                                eq("address->>pincode", it)
+                            }
+                        }
+                        limit(30)
+                       // range(range)
+                    }.decodeList<RestaurantInfo>())
+                }catch (e:Exception){
 
+                }
+
+                delay(1000L)
+            }
+        }
+        _recommendlist.collect{
+            viewModelScope.launch(Dispatchers.IO) {
+                recommendlist=it
+            }
+        }
+    }
 
 
     var pincode:String?=null

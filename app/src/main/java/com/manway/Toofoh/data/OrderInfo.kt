@@ -17,11 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.manway.Toofoh.R
 
 import com.manway.Toofoh.ViewModel.OrderViewModel
 import com.manway.toffoh.admin.data.FoodInfo
@@ -210,7 +213,9 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
                     it.first.id.toString(),
                     it.first.name,
                     it.first.price,
-                    it.second
+                    it.second,
+                    FoodCategory.VEG,
+                    ""
                 )
             })
         }
@@ -481,8 +486,47 @@ fun OrderInfoScope(orderInfo: OrderInfo, scope:@Composable OrderInfo.()->Unit){
 }
 
 @Serializable
-data class OrderItem(val id:String,val name:String,val price:Double,val quantity:Int){
+data class OrderItem(val id:String,val name:String,val price:Double,val quantity:Int,val foodCategory: FoodCategory,val restaurantChannelId:String){
     fun total():Double{ return price*quantity }
+
+    @Composable
+    fun OrderItemDisplay(onItemClick:(OrderItem)->Unit){
+
+        var orderCount by remember {
+            mutableStateOf(quantity)
+        }
+
+        LaunchedEffect(key1 =orderCount){
+            onItemClick(copy(quantity =orderCount ))
+        }
+
+
+            ConstraintLayout(Modifier.fillMaxWidth()) {
+                val (vegIcon,_name,addOrder,cost) = createRefs()
+                Icon(if(foodCategory==FoodCategory.VEG) painterResource(R.drawable.veg) else painterResource(R.drawable.nonveg), "Veg/Nom Veg", Modifier.constrainAs(vegIcon) {
+                    start.linkTo(parent.start,10.dp)
+                    top.linkTo(parent.top,10.dp)
+                }.size(40.dp),tint = if(foodCategory==FoodCategory.VEG) Color(0xFF1B5E20) else Color(0xFF8B0000))
+                Text(name,Modifier.constrainAs(_name){
+                    start.linkTo(vegIcon.end,15.dp)
+                    top.linkTo(parent.top,10.dp)
+                })
+                val color=MaterialTheme.colorScheme.primary
+
+                Row(Modifier.constrainAs(addOrder){ top.linkTo(parent.top,10.dp);end.linkTo(parent.end,10.dp); }.background(if (orderCount == 0 ) color else Color.White, MaterialTheme.shapes.small).border(1.dp,if (orderCount != 0 ) color else Color.White,MaterialTheme.shapes.small).width(100.dp).height(35.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    if(orderCount>0)     TextButton({ orderCount--;}) { Text("-") }
+                    Text(if(orderCount==0) "Add" else orderCount.toString(), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center), color =if(orderCount==0) Color.Unspecified else color , modifier = Modifier.clickable { if(orderCount==0){ orderCount=1; }})
+                    if(orderCount!=0) TextButton({ orderCount++; }) { Text("+") }
+                }
+                Text("Rs ${total()}",Modifier.constrainAs(cost){
+                    end.linkTo(addOrder.end,10.dp)
+                    top.linkTo(addOrder.bottom,10.dp)
+                })
+
+
+            }
+
+    }
 }
 
 enum class OrderStatus {

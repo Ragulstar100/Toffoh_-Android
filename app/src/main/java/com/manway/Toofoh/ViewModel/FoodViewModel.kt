@@ -27,11 +27,21 @@ class FoodViewModel(): ViewModel() {
     var errorList by mutableStateOf((0..15).map { "none$it" })
     private val _list= flow{
         while (true) {
-            emit(supabase.from(Table.FoodInfo.name).select(){
-            }.decodeList<FoodInfo>())
+            try {
+                emit(supabase.from(Table.FoodInfo.name).select(){
+
+                }.decodeList<FoodInfo>())
+            }catch (e:Exception){
+
+            }
+
             delay(1000L)
         }
     }
+
+
+
+
 
     fun feed(FoodInfo: FoodInfo): FoodViewModel {
         this.FoodInfo=FoodInfo
@@ -40,7 +50,7 @@ class FoodViewModel(): ViewModel() {
     private val _errorList= flow<List<String>>{
         while (true) {
             FoodInfo?.let {
-              // emit(supabase.postgrest.rpc(CouldFunction.FoodInfoValidate.first, mapOf(CouldFunction.FoodInfoValidate.second[0] to FoodInfo)).decodeList())
+             //  emit(supabase.postgrest.rpc(CouldFunction.FoodInfoValidate.first, mapOf(CouldFunction.FoodInfoValidate.second[0] to FoodInfo)).decodeList())
             }
         }
         delay(1000L)
@@ -69,7 +79,6 @@ class FoodViewModel(): ViewModel() {
         }
         viewModelScope.launch(Dispatchers.IO) {
             _list.collect {
-
                 list=it
             }
         }

@@ -1,5 +1,6 @@
 package com.manway.Toofoh
 
+import Screen.MainScreen
 import Screen.preview
 import Ui.data.ImageUrl
 import Ui.data.PhoneNumberField
@@ -56,6 +57,7 @@ import com.manway.Toofoh.android.LocalDb
 import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.data.ErrorInfo
 import com.manway.Toofoh.data.ErrorState
+import com.manway.Toofoh.data.OrderItem
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.ui.enums.LoginMethod
@@ -88,6 +90,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val navController = rememberNavController()
             val scope = rememberCoroutineScope()
+
+            var orderItems = remember {
+                mutableStateOf(listOf<OrderItem>())
+            }
 
 
             val localDb = LocalDb(this)
@@ -254,7 +260,7 @@ class MainActivity : ComponentActivity() {
 
                     composable(screen.Home.name) {
                         customerInfo?.let { it1 ->
-                            preview(localDb, it1, {
+                           MainScreen(localDb, it1, {
                                 navController.navigate(it.name)
                             }) {
                                 restaurantInfo = it
@@ -283,7 +289,7 @@ class MainActivity : ComponentActivity() {
                     composable(screen.Restorent.name) {
                         restaurantInfo?.let {
                             customerInfo?.let { cus ->
-                                RestaurantScreen(cus, it)
+                                RestaurantScreen(cus,orderItems, it)
                             }
                         }
                         }
