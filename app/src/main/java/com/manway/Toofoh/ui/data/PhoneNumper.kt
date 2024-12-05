@@ -284,7 +284,7 @@ fun PhoneNumberField(initialField:String="",readOnly:Boolean,errorCheck:Boolean,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex:Int,readOnly: Boolean=false,onPhoneNumberChanged:(PhoneNumber)->Unit) {
+fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex:Int,readOnly: Boolean=false,modifier: Modifier=Modifier,onPhoneNumberChanged:(PhoneNumber)->Unit) {
     val PhoneNumber = "Phone Number"
     var phoneNumber by remember { mutableStateOf(_phoneNumber) }
 
@@ -304,7 +304,7 @@ fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex
 
 
 
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }, modifier = modifier) {
         MyOutlinedTextField(
             phoneNumber.phoneNumber,
             onValueChange = {

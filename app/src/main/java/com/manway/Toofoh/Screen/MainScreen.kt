@@ -1,10 +1,12 @@
 package Screen
 
 import Ui.data.Address
+import Ui.data.AddressField
 import Ui.data.Filter
+import Ui.data.LocationType
 import Ui.enums.Availability
 import android.annotation.SuppressLint
-import android.widget.Toast
+import android.content.Context
 import com.manway.Toofoh.ViewModel.FoodViewModel
 import com.manway.Toofoh.ViewModel.RestaurantViewModel
 import androidx.compose.animation.AnimatedVisibility
@@ -13,12 +15,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -31,9 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.manway.Toofoh.dp.Table
@@ -43,7 +41,6 @@ import com.manway.toffoh.admin.data.RestaurantInfo
 import com.manway.Toofoh.data.CommonFoodInfo
 import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.dp.getImage
-import com.manway.Toofoh.ui.RatingFilter
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
@@ -66,90 +63,113 @@ import com.manway.Toofoh.ViewModel.CommonFoodViewModel
 import com.manway.Toofoh.android.LocalDb
 import com.manway.Toofoh.screen
 import com.manway.toffoh.admin.data.FoodInfo
-import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 
 
-//#f97a7b
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun preview(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (screen) -> Unit, restorentPickListner: (RestaurantInfo) -> Unit, ) {
+fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, settingsListener: (screen) -> Unit, modifier: Modifier=Modifier, restorentPickListner: (RestaurantInfo) -> Unit ){
 
-    var switchVegMode by remember {
-        mutableStateOf(false)
-    }
-
-    var searchField by remember {
-        mutableStateOf("")
-    }
-
-    var address by remember {
-        mutableStateOf<Address?>(localDb.gerLocation())
-    }
+    //Common
+    val scope= rememberCoroutineScope()
+    val scaffoldState = rememberBottomSheetScaffoldState()
 
 
+
+    //Fields
+    var searchField by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf<Address?>(Address("","641020","")) }
+
+
+    //ViewModels
     val restorent = viewModel<RestaurantViewModel>()
     restorent.search(searchField)
+    val food= viewModel<FoodViewModel>().feedContext(context)
 
-    var newest_bool by remember {
-        mutableStateOf(false)
-        //updated_at
+    //Filters
+    var aboveThreeStar by remember {
+        mutableStateOf(-1.0)
     }
+    var newest_bool by remember { mutableStateOf(false) }
     var quick_delivery_bool by remember {
         mutableStateOf(false)
-        //estimated delivery time
+    }
+    var switchVegMode by remember { mutableStateOf(false) }
+    var belowPrice by remember {
+        mutableStateOf(Double.MAX_VALUE)
     }
     var showAvailable by remember {
         mutableStateOf(false)
         //isAvailable
     }
-    var aboveThreeStar by remember {
-        mutableStateOf(-1.0)
-    }
-    var belowPrice by remember {
-        mutableStateOf(Double.MAX_VALUE)
-    }
 
-
-    val food= viewModel<FoodViewModel>()
-
-    address?.let {
-        restorent.pincode=it.pincode
+    /**showHider**/
+    //BottomSheet Pages
+    val (none,locationPicker,showFilter,search) = listOf(0,1,2,3)
+    var bottomtab by remember {
+        mutableStateOf(none)
     }
 
-    val scope= rememberCoroutineScope()
-    val scaffoldState = rememberBottomSheetScaffoldState()
-    var showLocationPicker by remember {
-        mutableStateOf(false)
-    }
-    var showFilter by remember {
-        mutableStateOf(false)
-    }
+    //Launch and Listners
 
+    LaunchedEffect(key1 = Unit){
+        restorent.recommended(0L..10L)
+    }
 
     LaunchedEffect(address) {
-        if (address == null) {
-            scaffoldState.bottomSheetState.expand()
-            showLocationPicker = true
+        address?.let {
+            restorent.pincode=it.pincode
         }
     }
 
 
-    // val themeColor=Color(0xFFFf97a7b)
+    //Search Field
+    val serarchView:@Composable ()->Unit ={
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
 
-    BottomSheetScaffold(scaffoldState = scaffoldState, sheetContent = {
-        if (showLocationPicker) LocationPicker(customerInfo, {
-               scope.launch {
-                   showLocationPicker=false
-               }
-           }){
-               address=it
-            localDb.setLocation(it)
-            restorent.pincode = it.pincode
-               showLocationPicker=false
-            showFilter = false
-           }
+
+
+                OutlinedTextField(searchField, {
+                    searchField = it
+                },label = { Text("Search Your Resturents") }, leadingIcon = {Icon(Icons.Default.Search, "",tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))}, shape = MaterialTheme.shapes.medium,modifier = Modifier.fillMaxWidth(0.7f).scale(0.80f), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.primary,focusedBorderColor = MaterialTheme.colorScheme.primary))
+
+
+                Text("Resturent List")
+
+
+                LazyVerticalGrid(GridCells.Fixed(2),modifier = Modifier.width(400.dp)) {
+                    restorent.list.forEach {
+                        item {
+                            it.HotelItemDisplaySmall {
+                                restorentPickListner(it)
+                            }
+                        }
+                    }
+                }
+
+        }
+
+
+    }
+
+
+
+
+
+
+    //ViewModels
+   // val food= viewModel<FoodViewModel>()
+
+
+    BottomSheetScaffold({
+
+
+        //Serach Field
+        if(bottomtab==search){
+            serarchView()
+        }
 
         val (priceRange, starRating, cuisine) = listOf("Price Range", "Star Rating", "Cuisine")
 
@@ -158,8 +178,15 @@ fun preview(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (scre
             mutableStateOf(priceRange)
         }
 
+        if (bottomtab==locationPicker) LocationPicker(customerInfo, context,{ scope.launch { bottomtab=none } }){
+            address=it
+            localDb.setLocation(it)
+            restorent.pincode = it.pincode
+            bottomtab=none
+        }
 
-        if (showFilter) {
+
+        if (bottomtab==showFilter) {
             Column(Modifier.fillMaxWidth().height(450.dp).padding(10.dp)) {
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -319,636 +346,250 @@ fun preview(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (scre
             }
         }
 
+    }, scaffoldState = scaffoldState) {
+        LazyColumn {
+            //Location
+            item {
+                Spacer(Modifier.height(50.dp))
+                //Address Location
+                Row(Modifier.fillMaxWidth().padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocationOn, "", Modifier.size(35.dp), tint = MaterialTheme.colorScheme.primary)
 
-    }, sheetPeekHeight = 0.dp) {
+                    Column(Modifier.fillMaxWidth(0.85f).clickable {
+                        scope.launch { scaffoldState.bottomSheetState.expand() }
+                        bottomtab=locationPicker
+                    }) {
 
-        var switchSearch by remember {
-            mutableStateOf(false)
-        }
-
-        AnimatedVisibility(switchSearch){
-            FoodGrid({ switchSearch = false }, restorentPickListner) {
-                searchField=it
-                switchSearch=false
-            }
-        }
-
-
-        AnimatedVisibility(!switchSearch) {
-            LazyColumn {
-
-                //Location
-                stickyHeader {
-                    Column(Modifier.background(Color.White).fillMaxWidth()) {
-
-                        //Address Location
-                        Row(Modifier.fillMaxWidth().padding(5.dp).clickable { scope.launch { scaffoldState.bottomSheetState.expand();showLocationPicker = true } }) {
-                            Icon(Icons.Default.LocationOn, "", Modifier.size(25.dp), tint =MaterialTheme.colorScheme.primary)
-                            Column(Modifier.fillMaxWidth(0.85f)) {
-                                Row(Modifier.fillMaxWidth().padding(start = 8.dp)) {
-                                    address?.let {
-                                        Text(it.pincode, style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                    Icon(
-                                        Icons.Default.KeyboardArrowDown,
-                                        "openLocationPicker",
-                                        Modifier.size(25.dp)
-                                    )
-                                }
-                                address?.let {
-                                    Text(
-                                        it.address,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(end = 8.dp),
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            IconButton({}) {
-                                supabase.getImage(customerInfo.profileUrl,
-                                    Modifier
-                                        .clip(CircleShape)
-                                        .size(50.dp), ContentScale.FillBounds)
-                                // Image(Icons.Default.Search, "Profile picture", Modifier.size(50.dp))
-                            }
-                        }
-
-                        //Search
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
-                            AssistChip(
-                                {
-                                    showFilter =
-                                        true;scope.launch { scaffoldState.bottomSheetState.expand() }
-                                },
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                label = {
-                                    Icon(
-                                        painterResource(R.drawable.filter),
-                                        "",
-                                        Modifier.size(20.dp, 40.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                            )
-                        Spacer(Modifier.height(10.dp))
-                            AssistChip(
-                                { switchSearch = true },
-                                {
-                                    Column(
-                                        Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        if (searchField.isEmpty()) Text(
-                                            "Search Your Dishes",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.DarkGray
-                                        ) else Text(searchField)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth(.70f)
-                                    .height(40.dp)
-                                    .padding(horizontal = 20.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Filled.Search,
-                                        "",
-                                        Modifier.size(25.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                trailingIcon = {})
-
-                            Button(
-                                {
-                                    switchVegMode = !switchVegMode
-                                    RestaurantViewModel.vegOnly = switchVegMode
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                                shape = MaterialTheme.shapes.medium,
-                                modifier = Modifier.width(100.dp)
-                            ) {
-                                if (switchVegMode) Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Non Veg", style = MaterialTheme.typography.bodySmall)
-                                    //  Image(painter = painterResource(R.drawable.veg), "", Modifier.size(50.dp))
-                                }
-                                else Row(verticalAlignment = Alignment.CenterVertically) {
-                                    /// Icon(painter = painterResource(R.drawable.non_veg), "", Modifier.size(35.dp), tint = MaterialTheme.colorScheme.primary)
-                                    Text("Veg", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
+                        address?.let {
+                            Text(it.pincode, style = MaterialTheme.typography.titleLarge)
+                            Text(it.address, style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth().padding(end = 8.dp), maxLines = 1)
 
                         }
 
-                        //Filter
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Spacer(Modifier.width(25.dp))
-
-
-                            val fontthisrow=MaterialTheme.typography.bodySmall
-
-                            AssistChip({
-                                newest_bool = !newest_bool
-                                restorent.enableNewest(newest_bool)
-                            }, { Text("Newest",style = fontthisrow) }, trailingIcon = {
-                                if (newest_bool) Icon(Icons.Default.Check, "")
-                            })
-
-                            AssistChip({
-                                quick_delivery_bool = !quick_delivery_bool
-                                restorent.enableQuickDelivery(quick_delivery_bool)
-                            }, { Text("Quick Delivery",style = fontthisrow) }, trailingIcon = {
-                                if (quick_delivery_bool) Icon(Icons.Default.Check, "")
-                            })
-
-                            AssistChip({
-                                showAvailable = !showAvailable
-                                restorent.enableAvailable(showAvailable)
-                                food.enableAvailable(showAvailable)
-                            }, { Text("Available",style = fontthisrow) }, trailingIcon = {
-                                if (showAvailable) Icon(Icons.Default.Check, "")
-                            })
-
-                            AssistChip({
-                                if(aboveThreeStar!=3.0) {
-                                    aboveThreeStar = 3.0
-                                    restorent.aboveTheStar=3.0
-                                }
-                                else{
-                                    aboveThreeStar=-1.0
-                                    restorent.aboveTheStar=-1.0
-                                }
-
-                            }, { Text("Above 3 Stars Hotel",style = fontthisrow) }, trailingIcon = {
-                                if (aboveThreeStar==3.0) Icon(Icons.Default.Check, "")
-                            })
-                            Spacer(Modifier.width(25.dp))
-                        }
-
-                        Row(
-                            Modifier
-                                .scale(1.0f)
-                                .fillMaxWidth()
-                                .height(35.dp),
-                            horizontalArrangement = Arrangement.spacedBy(
-                                10.dp,
-                                alignment = Alignment.End
-                            )
-                        ) {
-                            IconButton({
-                                settingsListner(screen.orders)
-                            }) {
-                                Icon(Icons.Default.ShoppingCart, "Cart")
-                            }
-                            if (false) IconButton({
-                                settingsListner(screen.favourite)
-                            }) {
-                                Icon(Icons.Default.FavoriteBorder, "Cart")
-                            }
-                        }
-
-                        Spacer(Modifier.height(30.dp))
                     }
 
-                }
+                    Text(customerInfo.name, Modifier.clickable {
+                        settingsListener(screen.Settings)
+                    }.drawBehind {
+                        // Calculate center coordinates
+                        val centerX = size.width / 2
+                        val centerY = size.height / 2-5f
 
-
-
-                //Restorer Item
-                item {
-                    Text("items " + restorent.list.size.toString())
-                    if (address != null) if (restorent.list.isNotEmpty()) restorent.list.forEach {
-                        customerItemView(
-                            it,
-                            restorentPickListner
+                        // Draw the circle
+                        drawCircle(color = Color(0xFFB2EBF2), radius = 50f, // Adjust radius as needed
+                            center = Offset(centerX, centerY)
                         )
-                    }
-                    else Text("Please select location")
 
+                        // Draw the text content
+
+                    }.size(50.dp).padding(5.dp), softWrap =false, style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
                 }
+            }
 
+            item {
+                Spacer(Modifier.height(10.dp))
+                Image(painterResource(R.drawable.sample_banner),"",Modifier.padding(10.dp).clip(MaterialTheme.shapes.medium).fillMaxWidth().height(150.dp),contentScale = ContentScale.FillBounds)
+            }
+
+
+            item {
+                //    val list = listOf(R.drawable.common_food1,R.drawable.common_food2,R.drawable.common_food3,R.drawable.common_food4,R.drawable.common_food5,R.drawable.common_food6,R.drawable.common_food7,R.drawable.common_food8,R.drawable.common_food9,R.drawable.common_food10,R.drawable.common_food11,R.drawable.common_food12)
+                val style=MaterialTheme.typography.displaySmall
+                var resizeableText by remember { mutableStateOf(style) }
+
+
+                Text("What's On Your Mind?",modifier = Modifier.width(400.dp),softWrap = false, onTextLayout = {result->
+                    if(result.didOverflowWidth){
+                        resizeableText=resizeableText.copy(fontSize = resizeableText.fontSize*0.9)
+                    }
+                }, style = resizeableText)
 
             }
-        }
 
-    }
-
-}
+            stickyHeader {
+                Box(Modifier.fillMaxWidth().height(50.dp).background(Color.White))
 
 
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun MainScreen(localDb: LocalDb, customerInfo: CustomerInfo, settingsListner: (screen) -> Unit, restorentPickListner: (RestaurantInfo) -> Unit ){
-    var searchField by remember { mutableStateOf("") }
-    var switchVegMode by remember { mutableStateOf(false) }
-    var newest_bool by remember { mutableStateOf(false) }
-    var quick_delivery_bool by remember {
-        mutableStateOf(false)
-    }
+                Column(Modifier.background(Color.White).fillMaxWidth()) {
 
-    var address by remember {
-        mutableStateOf<Address?>(localDb.gerLocation())
-    }
+                    //Search
+                    Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
+                        AssistChip({
+                            bottomtab =if(bottomtab!=showFilter) showFilter else none;scope.launch { scaffoldState.bottomSheetState.expand() }
+                        }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp, 40.dp), tint = MaterialTheme.colorScheme.primary) },
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        AssistChip(
+                            {
+                                bottomtab =if(bottomtab!=search) search else none;
+                                scope.launch { scaffoldState.bottomSheetState.expand() }
+                            },
+                            {
+                                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) {
+                                    if (searchField.isEmpty()) Text("Search Your Dishes", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) else Text(searchField)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(.70f).height(40.dp).padding(horizontal = 20.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            leadingIcon = {
+                                Icon(Icons.Filled.Search, "Search", Modifier.size(25.dp), tint = MaterialTheme.colorScheme.primary)
+                            },
+                            trailingIcon = {
 
-    val restorent = viewModel<RestaurantViewModel>()
-    restorent.search(searchField)
+                            })
 
-    var showAvailable by remember {
-        mutableStateOf(false)
-        //isAvailable
-    }
+                        Column {
+                            Switch(switchVegMode, {
+                                switchVegMode = !switchVegMode
+                                //   RestaurantViewModel.vegOnly = switchVegMode
 
-    var aboveThreeStar by remember {
-        mutableStateOf(-1.0)
-    }
+                            }, Modifier.width(50.dp).height(30.dp), thumbContent = {
+                                Icon(Icons.Default.Check, "", Modifier.size(15.dp))
+                            }, colors = SwitchDefaults.colors(uncheckedBorderColor = Color.White))
 
-    var belowPrice by remember {
-        mutableStateOf(Double.MAX_VALUE)
-    }
+                            Text("Veg Only", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
 
-    val food= viewModel<FoodViewModel>()
+                        }
 
-    address?.let {
-        restorent.pincode=it.pincode
-    }
-
-    val scope= rememberCoroutineScope()
-    val scaffoldState = rememberBottomSheetScaffoldState()
-    var showLocationPicker by remember {
-        mutableStateOf(false)
-    }
-    var showFilter by remember {
-        mutableStateOf(false)
-    }
-
-    var switchSearch by remember {
-        mutableStateOf(false)
-    }
-
-    //ViewModels
-   // val food= viewModel<FoodViewModel>()
-
-    LaunchedEffect(key1 = Unit){
-        restorent.recommended(0L..10L)
-    }
-
-    restorent.pincode=address?.pincode?:""
-
-    LazyColumn {
-
-
-
-        //Location
-        item {
-            Spacer(Modifier.height(50.dp))
-            //Address Location
-            Row(Modifier.fillMaxWidth().padding(5.dp).clickable { //scope.launch { scaffoldState.bottomSheetState.expand();showLocationPicker = true }
-            }, verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocationOn, "", Modifier.size(35.dp), tint = MaterialTheme.colorScheme.primary)
-
-                Column(Modifier.fillMaxWidth(0.85f)) {
-
-                    address?.let {
-                        Text(it.pincode, style = MaterialTheme.typography.titleLarge)
-                        Text(it.address, style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth().padding(end = 8.dp), maxLines = 1)
-
-                    }
-
-
-
-                    }
-
-                Text(customerInfo.name.substring(0,1), Modifier.drawBehind {
-                    // Calculate center coordinates
-                    val centerX = size.width / 2
-                    val centerY = size.height / 2-5f
-
-                    // Draw the circle
-                    drawCircle(color = Color(0xFFB2EBF2), radius = 50f, // Adjust radius as needed
-                        center = Offset(centerX, centerY)
-                    )
-
-                    // Draw the text content
-
-                }.size(50.dp).padding(5.dp), softWrap =false, style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
-            }
-        }
-
-        item {
-            Spacer(Modifier.height(10.dp))
-            Image(painterResource(R.drawable.sample_banner),"",Modifier.padding(10.dp).clip(MaterialTheme.shapes.medium).fillMaxWidth().height(150.dp),contentScale = ContentScale.FillBounds)
-        }
-
-
-        item {
-      //    val list = listOf(R.drawable.common_food1,R.drawable.common_food2,R.drawable.common_food3,R.drawable.common_food4,R.drawable.common_food5,R.drawable.common_food6,R.drawable.common_food7,R.drawable.common_food8,R.drawable.common_food9,R.drawable.common_food10,R.drawable.common_food11,R.drawable.common_food12)
-            val style=MaterialTheme.typography.displaySmall
-            var resizeableText by remember { mutableStateOf(style) }
-
-
-            Text("What's On Your Mind?",modifier = Modifier.width(400.dp),softWrap = false, onTextLayout = {result->
-                if(result.didOverflowWidth){
-                    resizeableText=resizeableText.copy(fontSize = resizeableText.fontSize*0.9)
-                }
-            }, style = resizeableText)
-
-//            LazyHorizontalGrid(GridCells.Fixed(2),Modifier.height(250.dp)) {
-//                list.forEach {
-//                    item {
-//                        //                supabase.getImage(
-////                    it.imageUrl,
-////                    Modifier
-////                        .clip(MaterialTheme.shapes.extraSmall)
-////                        .fillMaxSize(),
-////                    ContentScale.Crop
-////                )
-//                        //  Text(it.name)
-//                        Image(
-//                            painterResource(it),
-//                            "",
-//                            Modifier.padding(5.dp).clip(MaterialTheme.shapes.extraSmall)
-//                                .size(100.dp, 100.dp).padding(10.dp).clickable {
-//                                    // pickFood(it.name)
-//                                },
-//                            contentScale = ContentScale.FillBounds
-//                        )
-//
-//                    }
-//                }
-//            }
-
-
-
-        }
-
-        stickyHeader {
-            Box(Modifier.fillMaxWidth().height(50.dp).background(Color.White))
-
-
-
-            Column(Modifier.background(Color.White).fillMaxWidth()) {
-
-                //Search
-                Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
-                    AssistChip({
-                      showFilter = true;scope.launch { scaffoldState.bottomSheetState.expand() }
-                    }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp, 40.dp), tint = MaterialTheme.colorScheme.primary) },
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    AssistChip(
-                        {
-                            switchSearch = true
-                        },
-                        {
-                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) {
-                                if (searchField.isEmpty()) Text("Search Your Dishes", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) else Text(searchField)
+                        Row(Modifier.fillMaxWidth().height(35.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, alignment = Alignment.End)) {
+                            IconButton({
+                                settingsListener(screen.orders)
+                            }) {
+                                Icon(Icons.Default.ShoppingCart, "Cart", tint =MaterialTheme.colorScheme.primary)
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(.70f).height(40.dp).padding(horizontal = 20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                        leadingIcon = {
-                            Icon(Icons.Filled.Search, "Search", Modifier.size(25.dp), tint = MaterialTheme.colorScheme.primary)
-                        },
-                        trailingIcon = {
 
+//                            if (false) IconButton({
+//                                settingsListener(screen.favourite)
+//                            }) {
+//                                Icon(Icons.Default.FavoriteBorder ,"Cart", tint =MaterialTheme.colorScheme.primary)
+//                            }
+                        }
+
+
+
+                    }
+
+                    //Filter
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Spacer(Modifier.width(5.dp))
+
+
+                        val fontthisrow=MaterialTheme.typography.bodySmall
+
+                        AssistChip({
+                            newest_bool = !newest_bool
+                            restorent.enableNewest(newest_bool)
+                        }, { Text("Newest",style = fontthisrow) }, trailingIcon = {
+                            if (newest_bool) Icon(Icons.Default.Check, "")
                         })
 
-                    Column {
-                        Switch(switchVegMode, {
-                            switchVegMode = !switchVegMode
-                            //   RestaurantViewModel.vegOnly = switchVegMode
+                        AssistChip({
+                            quick_delivery_bool = !quick_delivery_bool
+                            restorent.enableQuickDelivery(quick_delivery_bool)
+                        }, { Text("Quick Delivery",style = fontthisrow) }, trailingIcon = {
+                            if (quick_delivery_bool) Icon(Icons.Default.Check, "")
+                        })
 
-                        }, Modifier.width(50.dp).height(30.dp), thumbContent = {
-                            Icon(Icons.Default.Check, "", Modifier.size(15.dp))
-                        }, colors = SwitchDefaults.colors(uncheckedBorderColor = Color.White))
+                        AssistChip({
+                            showAvailable = !showAvailable
+                            restorent.enableAvailable(showAvailable)
+                            food.enableAvailable(showAvailable)
+                        }, { Text("Available",style = fontthisrow) }, trailingIcon = {
+                            if (showAvailable) Icon(Icons.Default.Check, "")
+                        })
 
-                        Text("Veg Only", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                        AssistChip({
+                            if(aboveThreeStar!=3.0) {
+                                aboveThreeStar = 3.0
+                                restorent.aboveTheStar=3.0
+                            }
+                            else{
+                                aboveThreeStar=-1.0
+                                restorent.aboveTheStar=-1.0
+                            }
 
+                        }, { Text("Above 3 Stars Hotel",style = fontthisrow) }, trailingIcon = {
+                            if (aboveThreeStar==3.0) Icon(Icons.Default.Check, "")
+                        })
+                        Spacer(Modifier.width(25.dp))
                     }
 
-                    Row(Modifier.fillMaxWidth().height(35.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, alignment = Alignment.End)) {
-                        IconButton({
-                               settingsListner(screen.orders)
-                        }) {
-                            Icon(Icons.Default.ShoppingCart, "Cart", tint =MaterialTheme.colorScheme.primary)
-                        }
-                        if (false) IconButton({
-                             settingsListner(screen.favourite)
-                        }) {
-                            Icon(Icons.Default.FavoriteBorder ,"Cart", tint =MaterialTheme.colorScheme.primary)
-                        }
-                    }
-
-
-
+                    Spacer(Modifier.height(30.dp))
                 }
 
-                //Filter
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Spacer(Modifier.width(5.dp))
-
-
-                    val fontthisrow=MaterialTheme.typography.bodySmall
-
-                    AssistChip({
-                          newest_bool = !newest_bool
-                           restorent.enableNewest(newest_bool)
-                    }, { Text("Newest",style = fontthisrow) }, trailingIcon = {
-                        if (newest_bool) Icon(Icons.Default.Check, "")
-                    })
-
-                    AssistChip({
-                         quick_delivery_bool = !quick_delivery_bool
-                         restorent.enableQuickDelivery(quick_delivery_bool)
-                    }, { Text("Quick Delivery",style = fontthisrow) }, trailingIcon = {
-                        if (quick_delivery_bool) Icon(Icons.Default.Check, "")
-                    })
-
-                    AssistChip({
-                         showAvailable = !showAvailable
-                         restorent.enableAvailable(showAvailable)
-                         food.enableAvailable(showAvailable)
-                    }, { Text("Available",style = fontthisrow) }, trailingIcon = {
-                          if (showAvailable) Icon(Icons.Default.Check, "")
-                    })
-
-                    AssistChip({
-                        if(aboveThreeStar!=3.0) {
-                            aboveThreeStar = 3.0
-                            restorent.aboveTheStar=3.0
-                        }
-                        else{
-                            aboveThreeStar=-1.0
-                            restorent.aboveTheStar=-1.0
-                        }
-
-                    }, { Text("Above 3 Stars Hotel",style = fontthisrow) }, trailingIcon = {
-                         if (aboveThreeStar==3.0) Icon(Icons.Default.Check, "")
-                    })
-                    Spacer(Modifier.width(25.dp))
-                }
-
-                Spacer(Modifier.height(30.dp))
-            }
-
-        }
-
-
-
-        item {
-            Box(Modifier.fillMaxWidth(), Alignment.Center) {
-                HorizontalDivider(Modifier.fillMaxWidth())
-                Text("Recommended", modifier = Modifier.fillMaxWidth(0.45f).background(Color.Unspecified).padding(10.dp),
-                    style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
             }
 
 
-            LazyHorizontalGrid(GridCells.Fixed(2),Modifier.height(500.dp)) {
-                restorent.recommendlist.forEach {
-                    item {
-                        it.HotelItemDisplaySmall(restorentPickListner)
+
+            item {
+                Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                    HorizontalDivider(Modifier.fillMaxWidth())
+                    Text("Recommended", modifier = Modifier.fillMaxWidth(0.45f).background(Color.Unspecified).padding(10.dp),
+                        style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
+                }
+
+
+                LazyHorizontalGrid(GridCells.Fixed(2),Modifier.height(500.dp)) {
+                    restorent.recommendlist.forEach {
+                        item {
+                            it.HotelItemDisplaySmall(restorentPickListner)
+                        }
                     }
                 }
+
+
             }
+
+
+            item {
+
+                Text("All Hotels", modifier = Modifier.fillMaxWidth().padding(10.dp)
+                    .drawBehind {
+                        // Calculate line coordinates
+                        val lineY = size.height / 2 // Center vertically
+                        val lineStartX = 0f
+                        val lineEndX = size.width
+                        // Draw the line
+                        drawLine(color = Color.LightGray, // Adjust color as needed
+                            start = Offset(lineStartX, lineY),
+                            end = Offset(lineEndX, lineY),
+                            strokeWidth = 2f // Adjust stroke width as needed
+                        )
+                    },
+                    style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
+                )
+
+                if (address != null) if (restorent.list.isNotEmpty()) restorent.list.forEach {
+                    it.HotelItemDisplay(customerInfo,restorentPickListner)
+                }
+                else Text("Please select location")
+
+            }
+
 
 
         }
-
-
-        item {
-
-            Text("All Hotels", modifier = Modifier.fillMaxWidth().padding(10.dp)
-                .drawBehind {
-                    // Calculate line coordinates
-                    val lineY = size.height / 2 // Center vertically
-                    val lineStartX = 0f
-                    val lineEndX = size.width
-                    // Draw the line
-                    drawLine(color = Color.LightGray, // Adjust color as needed
-                        start = Offset(lineStartX, lineY),
-                        end = Offset(lineEndX, lineY),
-                        strokeWidth = 2f // Adjust stroke width as needed
-                    )
-                },
-                style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
-            )
-
-            if (address != null) if (restorent.list.isNotEmpty()) restorent.list.forEach {
-                it.HotelItemDisplay(restorentPickListner)
-            }
-            else Text("Please select location")
-
-        }
-
-
     }
+
+
+
 }
 
 
 
 
 
-@SuppressLint("SuspiciousIndentation")
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun trail(){
-    Dialog({}) {
-        Column(
-            Modifier
-                .background(Color.White, MaterialTheme.shapes.medium)
-                .width(450.dp)
-                .height(500.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton({}){
-                    Icon(Icons.Default.Close,"Close Action")
-                }
-                }
-
-                    Column (
-                        Modifier
-                            .horizontalScroll(rememberScrollState())
-                            .fillMaxWidth(),  verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        var newest_bool by remember {
-                            mutableStateOf(false)
-                            //updated_at
-                        }
-                        var quick_delivery_bool by remember {
-                            mutableStateOf(false)
-                            //estimated delivery time
-                        }
-                        var showAvailable by remember {
-                            mutableStateOf(false)
-                            //isAvailable
-                        }
-                        var aboveThreeStar by remember {
-                            mutableStateOf(false)
-                        }
-
-                        val modifier= Modifier
-                            .width(300.dp)
-                            .height(30.dp)
-                            .padding(start = 10.dp)
-                        val style=MaterialTheme.typography.bodySmall
-                        val rangeSliderState=RangeSliderState(0f,8f,100)
+//#f97a7b
 
 
 
-
-                                AssistChip({
-                                    newest_bool = !newest_bool
-                                    // restorent.enableNewest(newest_bool)
-                                }, { Text("Price", style = style) }, trailingIcon = {
-                                    if (newest_bool) Icon(Icons.Default.Check, "")
-                                    else RangeSlider(rangeSliderState,Modifier.fillMaxWidth(0.70f))
-                                }, modifier = modifier)
-
-
-
-                                AssistChip({
-                                    quick_delivery_bool = !quick_delivery_bool
-                                    //  restorent.enableQuickDelivry(quick_delivery_bool)
-                                }, { Text("Quick Delivery", style = style) }, trailingIcon = {
-                                    if (quick_delivery_bool) Icon(Icons.Default.Check, "")
-                                }, modifier = modifier)
-
-
-                                AssistChip({
-                                    showAvailable = !showAvailable
-                                    //restorent.enableAvailable(showAvailable)
-                                    // food.enableAvailable(showAvailable)
-                                }, { Text("Available", style = style) }, trailingIcon = {
-                                    if (showAvailable) Icon(Icons.Default.Check, "")
-                                }, modifier = modifier)
-
-                        
-                                AssistChip({
-                                    aboveThreeStar = !aboveThreeStar
-                                    // restorent.enableAbove3Star(aboveThreeStar)
-                                }, { Text("Above 3 Stars Hotel", style = style) }, trailingIcon = {
-                                    if (aboveThreeStar) Icon(Icons.Default.Check, "")
-                                }, modifier = modifier)
-
-
-
-                }
-        }
-
-    }
-
-}
 
 //Optimize this will be
 @Composable
-fun LocationPicker(customerInfo: CustomerInfo, closeAction: () -> Unit, pickAddress: (Address) -> Unit, ) {
+fun LocationPicker(customerInfo: CustomerInfo,context: Context, closeAction: () -> Unit, pickAddress: (Address) -> Unit, ) {
     val scope= rememberCoroutineScope()
-    var address= viewModel<RestaurantViewModel>()
+    var address= viewModel<RestaurantViewModel>().feedContext(context)
 
 
 
@@ -1379,152 +1020,152 @@ fun customerItemView() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
-@Composable
-fun FoodGrid(closeAction: () -> Unit, restorentPickListner: (RestaurantInfo) -> Unit, pickFood: (String) -> Unit, ) {
-    var list by remember { mutableStateOf(listOf<CommonFoodInfo>()) }
-    var restaurant = viewModel<RestaurantViewModel>()
-    var commonFood = viewModel<CommonFoodViewModel>()
-
-    LaunchedEffect(key1 = true) {
-        list = supabase.postgrest.from(Table.CommonFoodInfo.name).select().decodeList()
-    }
-
-    Column(
-        Modifier
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .fillMaxSize()) {
-        var search by remember { mutableStateOf("") }
-        Spacer(Modifier.height(25.dp))
-        Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
-            Spacer(Modifier.width(10.dp))
-
-            OutlinedTextField(search, { search = it }, placeholder = { Text("Search Your Food Or Hotel", color = Color.LightGray, style = MaterialTheme.typography.bodySmall) }, leadingIcon = { Icon(Icons.Default.Search, "Search", Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary) }, shape = MaterialTheme.shapes.small, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = MaterialTheme.colorScheme.primary), maxLines = 2, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.scale(0.80f).fillMaxWidth(0.75f).height(50.dp))
-
-            Spacer(Modifier.width(10.dp))
-            IconButton({ closeAction() }) {
-                Icon(Icons.Default.Close, "Close Action")
-            }
-        }
-
-        var foodOn by remember {
-            mutableStateOf(true)
-        }
-
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
-
-            Text("Food", Modifier.clickable { foodOn = !foodOn; }.width(80.dp).border(1.dp, if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-
-            Text(
-                "Hotel",
-                Modifier
-                    .clickable { foodOn = false }
-                    .width(80.dp)
-                    .border(
-                        1.dp,
-                        if (!foodOn) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        MaterialTheme.shapes.medium
-                    )
-                    .padding(5.dp),
-                style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
-            )
-        }
-
-        if (foodOn) LazyColumn {
-            item {
-                FlowRow(
-                    Modifier
-                        .padding(10.dp)
-                        .fillMaxWidth(), maxItemsInEachRow = 3) {
-                    commonFood.list.filter { Pattern.compile(search).matcher(it.name).find() }
-                        .forEach {
-                            Card(
-                                {
-                                    pickFood(it.name)
-                                },
-                                shape = MaterialTheme.shapes.medium,
-                                elevation = CardDefaults.cardElevation(4.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth(.33f)
-                                    .height(100.dp)
-                                    .padding(vertical = 5.dp, horizontal = 20.dp)
-                            ) {
-                                supabase.getImage(
-                                    it.imageUrl,
-                                    Modifier
-                                        .clip(MaterialTheme.shapes.extraSmall)
-                                        .fillMaxSize(),
-                                    ContentScale.Crop
-                                )
-                                //  Text(it.name)
-                            }
-                        }
-                }
-            }
-        }
-
-        if (!foodOn) LazyColumn {
-            item {
-                restaurant.unchangedList.filter { Pattern.compile(search).matcher(it.name).find() }
-                    .forEach {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                                .clickable {
-                                    restorentPickListner(it)
-                                }) {
-                            supabase.getImage(
-                                it.imageUrl,
-                                Modifier
-                                    .clip(MaterialTheme.shapes.extraSmall)
-                                    .size(100.dp),
-                                ContentScale.FillBounds
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Column(
-                                Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Text(it.name, style = MaterialTheme.typography.bodySmall)
-                                //Rating
-                                val decimal = it.rating - Math.floor(it.rating)
-                                Row(Modifier) {
-                                    Text(
-                                        it.rating.toString(),
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                    for (i in 1..Math.floor(it.rating).toInt()) {
-                                        Icon(
-                                            Icons.Default.Star,
-                                            "",
-                                            tint = Color.Yellow,
-                                            modifier = Modifier.size(10.dp)
-                                        )
-                                        if (i == Math.floor(it.rating)
-                                                .toInt() && decimal != 0.0
-                                        ) Icon(
-                                            painterResource(R.drawable.half_star),
-                                            "",
-                                            tint = Color.Yellow,
-                                            modifier = Modifier.size(10.dp)
-                                        )
-                                    }
-                                }
-
-                            }
-
-                        }
-                    }
-            }
-
-        }
-
-
-    }
-}
+//@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+//@Composable
+//fun FoodGrid(closeAction: () -> Unit, restorentPickListner: (RestaurantInfo) -> Unit, pickFood: (String) -> Unit, ) {
+//    var list by remember { mutableStateOf(listOf<CommonFoodInfo>()) }
+//    var restaurant = viewModel<RestaurantViewModel>()
+//    var commonFood = viewModel<CommonFoodViewModel>()
+//
+//    LaunchedEffect(key1 = true) {
+//        list = supabase.postgrest.from(Table.CommonFoodInfo.name).select().decodeList()
+//    }
+//
+//    Column(
+//        Modifier
+//            .background(MaterialTheme.colorScheme.primaryContainer)
+//            .fillMaxSize()) {
+//        var search by remember { mutableStateOf("") }
+//        Spacer(Modifier.height(25.dp))
+//        Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
+//            Spacer(Modifier.width(10.dp))
+//
+//            OutlinedTextField(search, { search = it }, placeholder = { Text("Search Your Food Or Hotel", color = Color.LightGray, style = MaterialTheme.typography.bodySmall) }, leadingIcon = { Icon(Icons.Default.Search, "Search", Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary) }, shape = MaterialTheme.shapes.small, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = MaterialTheme.colorScheme.primary), maxLines = 2, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.scale(0.80f).fillMaxWidth(0.75f).height(50.dp))
+//
+//            Spacer(Modifier.width(10.dp))
+//            IconButton({ closeAction() }) {
+//                Icon(Icons.Default.Close, "Close Action")
+//            }
+//        }
+//
+//        var foodOn by remember {
+//            mutableStateOf(true)
+//        }
+//
+//
+//        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
+//
+//            Text("Food", Modifier.clickable { foodOn = !foodOn; }.width(80.dp).border(1.dp, if (foodOn) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+//
+//            Text(
+//                "Hotel",
+//                Modifier
+//                    .clickable { foodOn = false }
+//                    .width(80.dp)
+//                    .border(
+//                        1.dp,
+//                        if (!foodOn) MaterialTheme.colorScheme.primary else Color.Transparent,
+//                        MaterialTheme.shapes.medium
+//                    )
+//                    .padding(5.dp),
+//                style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+//            )
+//        }
+//
+//        if (foodOn) LazyColumn {
+//            item {
+//                FlowRow(
+//                    Modifier
+//                        .padding(10.dp)
+//                        .fillMaxWidth(), maxItemsInEachRow = 3) {
+//                    commonFood.list.filter { Pattern.compile(search).matcher(it.name).find() }
+//                        .forEach {
+//                            Card(
+//                                {
+//                                    pickFood(it.name)
+//                                },
+//                                shape = MaterialTheme.shapes.medium,
+//                                elevation = CardDefaults.cardElevation(4.dp),
+//                                modifier = Modifier
+//                                    .fillMaxWidth(.33f)
+//                                    .height(100.dp)
+//                                    .padding(vertical = 5.dp, horizontal = 20.dp)
+//                            ) {
+//                                supabase.getImage(
+//                                    it.imageUrl,
+//                                    Modifier
+//                                        .clip(MaterialTheme.shapes.extraSmall)
+//                                        .fillMaxSize(),
+//                                    ContentScale.Crop
+//                                )
+//                                //  Text(it.name)
+//                            }
+//                        }
+//                }
+//            }
+//        }
+//
+//        if (!foodOn) LazyColumn {
+//            item {
+//                restaurant.unchangedList.filter { Pattern.compile(search).matcher(it.name).find() }
+//                    .forEach {
+//                        Row(
+//                            Modifier
+//                                .fillMaxWidth()
+//                                .padding(5.dp)
+//                                .clickable {
+//                                    restorentPickListner(it)
+//                                }) {
+//                            supabase.getImage(
+//                                it.imageUrl,
+//                                Modifier
+//                                    .clip(MaterialTheme.shapes.extraSmall)
+//                                    .size(100.dp),
+//                                ContentScale.FillBounds
+//                            )
+//                            Spacer(Modifier.width(10.dp))
+//                            Column(
+//                                Modifier.fillMaxWidth(),
+//                                verticalArrangement = Arrangement.spacedBy(5.dp)
+//                            ) {
+//                                Text(it.name, style = MaterialTheme.typography.bodySmall)
+//                                //Rating
+//                                val decimal = it.rating - Math.floor(it.rating)
+//                                Row(Modifier) {
+//                                    Text(
+//                                        it.rating.toString(),
+//                                        style = MaterialTheme.typography.bodyMedium
+//                                    )
+//                                    Spacer(Modifier.width(10.dp))
+//                                    for (i in 1..Math.floor(it.rating).toInt()) {
+//                                        Icon(
+//                                            Icons.Default.Star,
+//                                            "",
+//                                            tint = Color.Yellow,
+//                                            modifier = Modifier.size(10.dp)
+//                                        )
+//                                        if (i == Math.floor(it.rating)
+//                                                .toInt() && decimal != 0.0
+//                                        ) Icon(
+//                                            painterResource(R.drawable.half_star),
+//                                            "",
+//                                            tint = Color.Yellow,
+//                                            modifier = Modifier.size(10.dp)
+//                                        )
+//                                    }
+//                                }
+//
+//                            }
+//
+//                        }
+//                    }
+//            }
+//
+//        }
+//
+//
+//    }
+//}
 
 ///** probulem with this */
 //@Composable

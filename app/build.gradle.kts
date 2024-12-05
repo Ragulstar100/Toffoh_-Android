@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.play.services.auth)
     implementation(libs.androidx.lifecycle.runtime.compose.android)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.play.services.fido)
+    implementation(libs.androidx.espresso.core)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

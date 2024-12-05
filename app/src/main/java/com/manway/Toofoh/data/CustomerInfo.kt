@@ -3,6 +3,7 @@ package com.manway.Toofoh.data
 import Ui.data.*
 import Ui.enums.Availability
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.rememberPagerState
@@ -80,9 +81,9 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
     @SuppressLint("CoroutineCreationDuringComposition")
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    fun profileInfo(colseAction: (Boolean) -> Unit) {
+    fun profileInfo(context: Context, colseAction: (Boolean) -> Unit) {
 
-        var customer = viewModel<CustomerViewModel>()
+        var customer = viewModel<CustomerViewModel>().feedContext(context)
 
 
         var open by remember {
@@ -125,16 +126,6 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
             }
         }
 
-        customer.connectionCheck = object : InternetListener {
-            override fun internet(availability: Boolean) {
-                connection = availability
-            }
-
-            override fun other(e: Exception) {
-
-            }
-
-        }
 
 
         CustomerInfoScope(customerInfo) {
@@ -291,8 +282,9 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
 //                        customerInfo = customerInfo.copy(address = addresses.value)
 //                    }
 
-                    if (!errorList.filterIndexed { i, it -> !listOf(4, 8).contains(i) }
-                            .map { it.isEmpty() }.contains(false)) Row(
+
+
+                    if (!errorList.filterIndexed { i, it -> !listOf(4, 8).contains(i) }.map { it.isEmpty() }.contains(false)) Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {

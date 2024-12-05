@@ -1,6 +1,8 @@
 package com.manway.Toofoh.Screen
 
 import android.annotation.SuppressLint
+import android.util.Log
+import android.widget.AutoCompleteTextView.OnDismissListener
 import android.widget.RatingBar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
@@ -28,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,11 +65,13 @@ import java.time.ZoneId
 
 @SuppressLint("NewApi")
 @Composable
-fun OrderScreen(customerInfo: CustomerInfo) {
+fun OrderScreen(customerInfo: CustomerInfo,onDismissListener:()->Unit) {
 
     var orders by remember {
         mutableStateOf(listOf<OrderInfo>())
     }
+
+
 
 
     LaunchedEffect(Unit) {
@@ -79,6 +85,14 @@ fun OrderScreen(customerInfo: CustomerInfo) {
     LazyColumn(Modifier.fillMaxWidth()) {
         item {
             Spacer(Modifier.height(50.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.End) {
+                IconButton({
+                    onDismissListener()
+                    Log.e("bug","next")
+                }) {
+                    Icon(Icons.Default.Close, "")
+                }
+            }
         }
 
         orders.forEach {
@@ -90,7 +104,7 @@ fun OrderScreen(customerInfo: CustomerInfo) {
                 }
                 Row( horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically,modifier = Modifier.padding(horizontal = 5.dp, vertical = 5.dp).border(1.dp, MaterialTheme.colorScheme.primary,MaterialTheme.shapes.small).fillMaxWidth()) {
                     // Text(it.order_id.toString(), Modifier.width(200.dp))
-                    Text(it.order_time?.toDate().toString(), style = MaterialTheme.typography.bodyMedium)
+                    Text(it.order_time.toString(), style = MaterialTheme.typography.bodyMedium)
                     Text(it.order_status.toString(),style = MaterialTheme.typography.bodyMedium)
                     IconButton({
                         openOrder = !openOrder
@@ -108,9 +122,70 @@ fun OrderScreen(customerInfo: CustomerInfo) {
 
 }
 
+@SuppressLint("NewApi")
+@Composable
+fun OrderScreen(customerInfo: CustomerInfo,tab:MutableState<Int>) {
+
+    var orders by remember {
+        mutableStateOf(listOf<OrderInfo>())
+    }
+
+
+
+
+    LaunchedEffect(Unit) {
+        orders = supabase.from(Table.OrderInfo.name).select {
+            filter {
+                eq("customer_channel_id", customerInfo.channelId ?: "")
+            }
+            //  order("order_time",OrderDirection.Desc)
+        }.decodeList()
+    }
+    LazyColumn(Modifier.fillMaxWidth()) {
+        item {
+            Spacer(Modifier.height(50.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.End) {
+                IconButton({
+                    tab.value=0
+                    Log.e("bug","next")
+                }) {
+                    Icon(Icons.Default.Close, "")
+                }
+            }
+        }
+
+        orders.forEach {
+
+
+            item {
+                var openOrder by remember {
+                    mutableStateOf(false)
+                }
+                Row( horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically,modifier = Modifier.padding(horizontal = 5.dp, vertical = 5.dp).border(1.dp, MaterialTheme.colorScheme.primary,MaterialTheme.shapes.small).fillMaxWidth()) {
+                    // Text(it.order_id.toString(), Modifier.width(200.dp))
+                    Text(it.order_time.toString(), style = MaterialTheme.typography.bodyMedium)
+                    Text(it.order_status.toString(),style = MaterialTheme.typography.bodyMedium)
+                    IconButton({
+                        openOrder = !openOrder
+                    }) {
+                        Icon(if (openOrder) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            "")
+                    }
+                }
+
+                if(openOrder) OrderPage(customerInfo,it)
+
+            }
+        }
+    }
+
+}
+
 @SuppressLint("NewApi", "SuspiciousIndentation")
 @Composable
 fun OrderPage(customerInfo: CustomerInfo,orderInfo:OrderInfo){
+
+
 
     var order by remember {
         mutableStateOf(orderInfo)

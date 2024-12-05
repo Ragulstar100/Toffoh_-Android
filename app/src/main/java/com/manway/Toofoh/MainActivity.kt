@@ -1,10 +1,10 @@
 package com.manway.Toofoh
 
 import Screen.MainScreen
-import Screen.preview
 import Ui.data.ImageUrl
 import Ui.data.PhoneNumberField
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -50,6 +50,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.auth.api.identity.Identity
 import com.manway.Toofoh.Screen.OrderScreen
 import com.manway.Toofoh.Screen.RestaurantScreen
+import com.manway.Toofoh.Screen.SettingsScreen
 import com.manway.Toofoh.ViewModel.ServiceAreaViewModel
 import com.manway.Toofoh.android.GoogleSignInButton
 import com.manway.Toofoh.android.GoogleSignInClient
@@ -60,6 +61,7 @@ import com.manway.Toofoh.data.ErrorState
 import com.manway.Toofoh.data.OrderItem
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
+import com.manway.Toofoh.ui.android.showErrorDialog
 import com.manway.Toofoh.ui.enums.LoginMethod
 import com.manway.Toofoh.ui.theme.MyApplicationTheme
 import com.manway.toffoh.admin.data.RestaurantInfo
@@ -69,18 +71,18 @@ import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.from
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import kotlinx.coroutines.launch
 
 enum class screen{
-    Home, Restorent, serviceCheck, profile, signup, orders, favourite, splashScreen
+    Home, Restorent, serviceCheck, profile, signup, orders, favourite, splashScreen,Settings
 }
+
+
 
 class MainActivity : ComponentActivity() {
     private val googleAuthUiClient by lazy {
-        GoogleSignInClient(
-            context = applicationContext,
-            oneTapClient = Identity.getSignInClient(applicationContext)
-        )
+        GoogleSignInClient(context = this, oneTapClient = Identity.getSignInClient(applicationContext))
     }
 
     @SuppressLint("SuspiciousIndentation")
@@ -88,8 +90,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+
             val navController = rememberNavController()
             val scope = rememberCoroutineScope()
+            var settingsScreen= remember { mutableStateOf(0) }
 
             var orderItems = remember {
                 mutableStateOf(listOf<OrderItem>())
@@ -108,9 +112,7 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf<CustomerInfo?>(null)
             }
 
-            val launcher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.StartIntentSenderForResult(),
-                onResult = { result ->
+            val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.StartIntentSenderForResult(), onResult = { result ->
 
                     if (result.resultCode == RESULT_OK) {
                         scope.launch {
@@ -140,23 +142,20 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(Unit) {
                 if (login.first == LoginMethod.Google) {
-                    if (login.first == LoginMethod.Google) {
+
                         loginEmail = login.second
+
                         scope.launch {
                             try {
-                                customerInfo = supabase.from(Table.CustomerInfo.name)
-                                    .select { filter { eq("email", loginEmail ?: "") } }
-                                    .decodeSingle()
-                                navController.navigate(screen.orders.name)
+                                customerInfo = supabase.from(Table.CustomerInfo.name).select { filter { eq("email", loginEmail ?: "") } }.decodeSingle()
                             } catch (e: Exception) {
 //                                val profileUrl = ImageUrl("", "", session.session.user?.userMetadata?.get("avatar_url").toString())
 //                                customerInfo = CustomerInfo.initialCustomerInfo.copy(email = loginEmail, profileUrl = profileUrl)
-                                navController.navigate(screen.signup.name)
+                               // navController.navigate(screen.profile.name)
                             }
 
                         }
 
-                    }
                 } else if (login.first == LoginMethod.PhoneNumber) {
 
                 } else {
@@ -164,11 +163,6 @@ class MainActivity : ComponentActivity() {
                 }
 
             }
-
-
-
-
-
 
             supabase.auth.sessionStatus.collectAsStateWithLifecycle().value.let { session ->
                 var scope = rememberCoroutineScope()
@@ -184,22 +178,13 @@ class MainActivity : ComponentActivity() {
                                         .select { filter { eq("email", loginEmail ?: "") } }
                                         .decodeSingle()
                                     navController.navigate(screen.Home.name)
-                                    Toast.makeText(
-                                        applicationContext,
-                                        session.session.user?.email,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                } catch (e: Exception) {
-                                    val profileUrl = ImageUrl(
-                                        "",
-                                        "",
-                                        session.session.user?.userMetadata?.get("avatar_url")
-                                            .toString()
-                                    )
-                                    customerInfo = CustomerInfo.initialCustomerInfo.copy(
-                                        email = loginEmail,
-                                        profileUrl = profileUrl
-                                    )
+                                }catch (e: HttpRequestTimeoutException) {
+                                     showErrorDialog("Internet" ,"Check Your Internet Connection",this@MainActivity)
+                                }
+                                catch (e: Exception) {
+                                    Toast.makeText(applicationContext, e.message, Toast.LENGTH_SHORT).show()
+                                    val profileUrl = ImageUrl("", "", session.session.user?.userMetadata?.get("avatar_url").toString())
+                                    customerInfo = CustomerInfo.initialCustomerInfo.copy(email = loginEmail, profileUrl = profileUrl)
                                     navController.navigate(screen.profile.name)
                                 }
 
@@ -223,22 +208,11 @@ class MainActivity : ComponentActivity() {
                 var restaurantInfo by remember {
                     mutableStateOf<RestaurantInfo?>(null)
                 }
-                NavHost(
-                    navController = navController,
-                    startDestination = screen.splashScreen.name
-                ) {
+                NavHost(navController = navController, startDestination = screen.splashScreen.name) {
 
                     composable(screen.splashScreen.name) {
-                        Column(
-                            Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                "Toffoh",
-                                style = MaterialTheme.typography.displayLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Text("Toffoh", style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.primary)
                         }
                     }
 
@@ -253,14 +227,13 @@ class MainActivity : ComponentActivity() {
                             }
                         }, {
                         }) {
-                            Toast.makeText(applicationContext, "Network Error", Toast.LENGTH_SHORT)
-                                .show()
+                            Toast.makeText(applicationContext, "Network Error", Toast.LENGTH_SHORT).show()
                         }
                     }
 
                     composable(screen.Home.name) {
                         customerInfo?.let { it1 ->
-                           MainScreen(localDb, it1, {
+                           MainScreen(localDb,this@MainActivity, it1, {
                                 navController.navigate(it.name)
                             }) {
                                 restaurantInfo = it
@@ -270,7 +243,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable(screen.serviceCheck.name) {
-                        ServiceCheckScreen("") {
+                        ServiceCheckScreen(context = this@MainActivity, "") {
                             navController.navigate(screen.profile.name)
                             Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
 
@@ -280,7 +253,7 @@ class MainActivity : ComponentActivity() {
 
                     composable(screen.profile.name) {
                         customerInfo?.let {
-                            it.profileInfo {
+                            it.profileInfo(this@MainActivity) {
                                 navController.navigate(screen.Home.name)
                             }
                         }
@@ -289,14 +262,30 @@ class MainActivity : ComponentActivity() {
                     composable(screen.Restorent.name) {
                         restaurantInfo?.let {
                             customerInfo?.let { cus ->
-                                RestaurantScreen(cus,orderItems, it)
+                                RestaurantScreen(cus,navController,settingsScreen,orderItems, it){
+                                    navController.navigate(screen.Home.name)
+                                }
                             }
                         }
                         }
 
                     composable(screen.orders.name) {
                         customerInfo?.let {
-                            OrderScreen(it)
+                            OrderScreen(it){
+                                navController.navigate(screen.Home.name)
+                            }
+                        }
+                    }
+
+                    composable(screen.Settings.name){
+                        customerInfo?.let {
+                            SettingsScreen(it,navController,localDb,orderItems,settingsScreen){
+                                scope.launch {
+                                    googleAuthUiClient.signOut()
+                                }
+                                localDb.setSignIn(LoginMethod.None to null)
+                                navController.navigate(screen.signup.name)
+                            }
                         }
                     }
                 }
@@ -337,6 +326,7 @@ fun SignUpScreen(
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun ServiceCheckScreen(
+    context: Context,
     _pincode: String,
     modifier: Modifier = Modifier,
     error: () -> Unit = {},
@@ -344,7 +334,7 @@ fun ServiceCheckScreen(
 ) {
     //Language
     val Enter_Pin_code = "Enter Pin code"
-    var listServiceArea = viewModel<ServiceAreaViewModel>()
+    var listServiceArea = viewModel<ServiceAreaViewModel>().feed(context)
     var pinCode by remember { mutableStateOf(_pincode) }
     var interact by remember { mutableStateOf(false) }
     val errorInfo = ErrorInfo(Enter_Pin_code, "Invalid Pin code")

@@ -1,6 +1,8 @@
 package com.manway.Toofoh.ViewModel
 
 import Ui.enums.Availability
+import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,6 +12,7 @@ import com.manway.Toofoh.dp.CouldFunction
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.data.CustomerInfo
+import com.manway.Toofoh.ui.android.showErrorDialog
 import com.manway.Toofoh.ui.data.InternetListener
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -25,24 +28,22 @@ class CustomerViewModel : ViewModel() {
     private var customerInfo: CustomerInfo?=null
 
     var errorList by mutableStateOf((0..15).map { "none$it" })
-    var connectionCheck = object : InternetListener {
-        override fun internet(availability: Boolean) {
 
-        }
 
-        override fun other(e: Exception) {
+    @SuppressLint("StaticFieldLeak")
+    var context:Context?=null
 
-        }
-
-    }
     private val _list= flow{
         while (true) {
             try {
                 emit(supabase.from(Table.CustomerInfo.name).select().decodeList<CustomerInfo>())
-            } catch (e: Exception) {
-
+            }catch (e: HttpRequestTimeoutException) {
+                context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
             }
-            delay(1000L)
+            catch (e: Exception) {
+                context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
+            }
+            delay(250L)
         }
     }
 
@@ -51,6 +52,12 @@ class CustomerViewModel : ViewModel() {
         this.customerInfo=CustomerInfo
         return this
     }
+
+    fun feedContext(context: Context): CustomerViewModel{
+        this.context=context
+        return this
+    }
+
     private val _errorList= flow<List<String>>{
         while (true) {
 
@@ -63,12 +70,11 @@ class CustomerViewModel : ViewModel() {
                             )
                         ).decodeList()
                     )
-                    connectionCheck.internet(true)
                 } catch (e: HttpRequestTimeoutException) {
-                    delay(3000)
-                    connectionCheck.internet(false)
-                } catch (e: Exception) {
-                    connectionCheck.other(e)
+                    context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
+                }
+                catch (e: Exception) {
+                    context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
                 }
             }
         }

@@ -46,8 +46,8 @@ data class  OrderInfo(
     val order_items: List<OrderItem>,
     val order_total: Double,
     val order_status: OrderStatus,
-    val order_time: LocalDateTime? = null,
-    val delivery_time: LocalDateTime? = null,
+    val order_time: String? = null,
+    val delivery_time: String? = null,
     val payment_method: PaymentMethod,
     val delivery_instructions: String? = null,
 ){
@@ -78,121 +78,6 @@ data class  OrderInfo(
             Spacer(Modifier.height(10.dp))
     }
 
-    @Composable
-    fun orderAdd(){
-        val (main,customerPicker,restorentPicker,foodPicker)= listOf(0,1,2,3)
-
-        var subScreen by remember {
-            mutableStateOf(main)
-        }
-        var orderInfo by remember {
-            mutableStateOf(this)
-        }
-        var order= viewModel<OrderViewModel>()
-        var customer= viewModel<CustomerViewModel>()
-        var restaurant= viewModel<RestaurantViewModel>()
-        val errorList=order.feed(orderInfo).errorList
-
-
-        OrderInfoScope(orderInfo) {
-            var restaurantInfo by remember {
-                mutableStateOf<RestaurantInfo?>(null)
-            }
-
-            AnimatedVisibility(subScreen == main) {
-
-
-                    Column(Modifier.verticalScroll(rememberScrollState()).clip(RoundedCornerShape(2)).padding(vertical = 5.dp).background(Color.White, RoundedCornerShape(2)).width(450.dp).height(1500.dp).padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-
-
-                        MyOutlinedTextField(customer_name, { orderInfo = orderInfo.copy(customer_name = it) }, "Name", errorList, 6)
-
-                        MyOutlinedTextField(customer_channel_id ?: "none", { orderInfo = orderInfo.copy(customer_channel_id = customer_channel_id) }, "Customer_Channel_id", errorList, 1, readOnly = true, trailingIcon = {
-                                IconButton({
-                                    subScreen = customerPicker
-                                }) {
-                                    Icon(Icons.Default.Menu, "Add Customer Info")
-                                }
-                            })
-
-                        //Address
-                        var _address = remember { mutableStateOf(customer_address) }
-                        AddressField(_address, errorList, 3)
-                        orderInfo = orderInfo.copy(customer_address = _address.value)
-
-                        //Order Status
-                        Row(verticalAlignment = Alignment.CenterVertically) { MyDropdownMenu(
-                            OrderStatus.PENDING.name,listOf(OrderStatus.PENDING.name, OrderStatus.ACCEPTED.name, OrderStatus.PREPARING.name, OrderStatus.OUT_FOR_DELIVERY.name, OrderStatus.DELIVERED.name, OrderStatus.CANCELED.name), Modifier.width(300.dp)) {
-                                orderInfo = orderInfo.copy(
-                                    order_status = when (it) {
-                                        OrderStatus.ACCEPTED.name -> OrderStatus.ACCEPTED
-                                        OrderStatus.PREPARING.name -> OrderStatus.PREPARING
-                                        OrderStatus.OUT_FOR_DELIVERY.name -> OrderStatus.OUT_FOR_DELIVERY
-                                        OrderStatus.DELIVERED.name -> OrderStatus.DELIVERED
-                                        OrderStatus.CANCELED.name -> OrderStatus.CANCELED
-                                        else -> OrderStatus.PENDING
-                                    }
-                                )
-                            };Icon(Icons.Default.KeyboardArrowDown, "Down") }
-
-                        TextButton({
-                            subScreen=restorentPicker
-                        }){
-                            Text("Pick Restorent")
-                        }
-
-                        OrderReciptScreen(CustomerInfo.initialCustomerInfo,restaurantInfo, listOf(
-                            FoodInfo.initialFoodInfo.copy(id = 33), FoodInfo.initialFoodInfo.copy(id = 38), FoodInfo.initialFoodInfo.copy(id = 33), FoodInfo.initialFoodInfo.copy(id = 34), FoodInfo.initialFoodInfo.copy(id = 33), FoodInfo.initialFoodInfo.copy(id = 38)), orderInfo) { orderInfo = it }
-                    }
-            }
-
-
-            AnimatedVisibility(subScreen == customerPicker) {
-                Column(Modifier.clip(RoundedCornerShape(2)).padding(vertical = 5.dp).background(Color.White, RoundedCornerShape(2)).width(450.dp).fillMaxHeight().padding(vertical = 5.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(order_id ?: "None")
-                        IconButton({
-                            subScreen=main
-                        }){
-                            Icon(Icons.Default.Close,"Close")
-                        }
-
-                    }
-                    customer.list.forEach { customerinfo->
-                        var show by remember {
-                            mutableStateOf(false)
-                        }
-                        Column {
-                            Row(Modifier.padding(10.dp).border(1.dp, Color.LightGray, RoundedCornerShape(10)).fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                Text(customerinfo.name)
-                                Spacer(Modifier.width(10.dp))
-                                Text(customerinfo.phoneNumber.toString())
-                                IconButton({
-                                    show=!show
-                                }, modifier = Modifier.size(25.dp)) {
-                                    Icon(if(show) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, "")
-                                }
-                            }
-                            if(show){
-                                customerinfo.address.forEach {
-                                    TextButton({
-                                        orderInfo=orderInfo.copy(customer_address = it, customer_name =customerinfo.name, customer_channel_id = customerinfo.channelId!!, role = Role.Admin, customer_phone_number =customerinfo.phoneNumber )
-                                        subScreen=main
-                                    }) {
-                                        Text(it.toString(), modifier = Modifier.padding(10.dp))
-                                    }
-                                    Spacer(Modifier.height(15.dp))
-                                }
-
-                            }
-                        }
-                    }
-                }
-            }
-
-        }
-
-    }
 
 }
 

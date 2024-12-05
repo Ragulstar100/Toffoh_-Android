@@ -3,6 +3,7 @@ package com.manway.toffoh.admin.data
 import Ui.data.Address
 import Ui.enums.Availability
 import Ui.data.ImageUrl
+import Ui.data.LocationType
 import Ui.data.PhoneNumber
 import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
+import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.getImage
 import com.manway.Toofoh.dp.supabase
@@ -36,6 +38,8 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 @Serializable
 data class RestaurantInfo private constructor(
@@ -70,11 +74,11 @@ data class RestaurantInfo private constructor(
 
     @SuppressLint("CoroutineCreationDuringComposition")
     @Composable
-    fun HotelItemDisplaySmall(onClick:(RestaurantInfo)->Unit){
+    fun HotelItemDisplaySmall( onClick:(RestaurantInfo)->Unit){
 
         Card(elevation = CardDefaults.cardElevation(defaultElevation = 1.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.clickable {
-            onClick(this@RestaurantInfo)
-        }) {
+            if(isAvailable==Availability.Available)   onClick(this@RestaurantInfo)
+        }.padding(5.dp)) {
             var randomFood by remember {
                 mutableStateOf<List<FoodInfo>?>(null)
             }
@@ -96,11 +100,11 @@ data class RestaurantInfo private constructor(
 
             ConstraintLayout(
                 Modifier
-                    .padding(7.dp)
                     .clip(MaterialTheme.shapes.medium)
                     .width(180.dp)
-                    .height(250.dp)
+                    .height(270.dp)
                     .background(Color.White)
+                    .padding(7.dp)
             ) {
                 val (image, nameText) = createRefs()
 
@@ -116,9 +120,11 @@ data class RestaurantInfo private constructor(
                         .fillMaxWidth()
                         .height(150.dp)
                         .clickable {
+                            if(isAvailable==Availability.Available)      onClick(this@RestaurantInfo)
                             // pickFood(it.name)
                         },
                     contentScale = ContentScale.FillBounds
+                    ,  isAvailable!=Availability.Available
                 )
                 Column(Modifier.fillMaxWidth().constrainAs(nameText){
                     top.linkTo(image.bottom,5.dp)
@@ -169,11 +175,14 @@ data class RestaurantInfo private constructor(
 
     @SuppressLint("UnusedBoxWithConstraintsScope", "CoroutineCreationDuringComposition")
     @Composable
-    fun HotelItemDisplay(onClick:(RestaurantInfo)->Unit){
+    fun HotelItemDisplay(customerInfo: CustomerInfo,onClick:(RestaurantInfo)->Unit){
 
         var foods by remember {
             mutableStateOf<List<FoodInfo>?>(null)
         }
+
+
+
         val scope = rememberCoroutineScope()
 
         scope.launch {
@@ -188,27 +197,43 @@ data class RestaurantInfo private constructor(
             }
         }
 
+        var favorate by remember {
+            mutableStateOf<FavInfo?>(null)
+        }
+
+        var isFav by remember {
+            mutableStateOf(false)
+        }
+
+        LaunchedEffect(Unit) {
+            try {
+                favorate=
+                    supabase.from(Table.FavInfo.name).select {
+                        filter {
+                            eq("favId", Json.encodeToString(FavInfo.ResFav(customerInfo.channelId?:"",Table.RestaurantInfo.name,channel_id)))
+                        }
+                    }.decodeSingle()
+                isFav=favorate?.isFavorate?:false
+
+            }catch (e:Exception){
+
+            }
+        }
+
 
 
         Column(Modifier) {
             Spacer(Modifier.height(25.dp))
             Card(Modifier.clickable {
-                onClick(this@RestaurantInfo)
+                if(isAvailable==Availability.Available) onClick(this@RestaurantInfo)
             }) {
                 ConstraintLayout(Modifier.padding(10.dp).clip(MaterialTheme.shapes.large).background(Color.Yellow).fillMaxWidth().height(330.dp)) {
-                    val (favorate, textContainer, hide, hoteldistance,price) = createRefs()
+                    var (_favorate, textContainer, hide, hoteldistance,price) = createRefs()
                     HorizontalPager(rememberPagerState { foods?.size?:0 }) {
-                        supabase.getImage(foods?.get(it)?.imageUrl,  Modifier.fillMaxWidth().height(200.dp), contentScale = ContentScale.FillBounds)
+                        supabase.getImage(foods?.get(it)?.imageUrl,  Modifier.fillMaxWidth().height(200.dp), contentScale = ContentScale.FillBounds,isAvailable!=Availability.Available)
                     }
                     /**Gps**/
-                    Text("1.5 km",
-                        Modifier
-                            .zIndex(3F).padding(1.dp)
-                            .constrainAs(hoteldistance) {
-                                bottom.linkTo(textContainer.top, -10.dp)
-                                end.linkTo(parent.end,-5.dp)
-                            }
-                            .background(Color.White, MaterialTheme.shapes.small).padding(5.dp))
+                    Text("1.5 km", Modifier.zIndex(3F).padding(1.dp).constrainAs(hoteldistance) { bottom.linkTo(textContainer.top, -10.dp);end.linkTo(parent.end,-5.dp) }.background(Color.White, MaterialTheme.shapes.small).padding(5.dp))
 //                Text("For ${price[it]}",
 //                    Modifier
 //                        .zIndex(3F).padding(1.dp)
@@ -217,13 +242,25 @@ data class RestaurantInfo private constructor(
 //                           start.linkTo(parent.start,-5.dp)
 //                        }
 //                        .padding(5.dp), style = MaterialTheme.typography.displayMedium)
-                    Icon(
-                        Icons.Outlined.FavoriteBorder, "Favorites",
-                        Modifier.constrainAs(favorate) {
-                            top.linkTo(parent.top, 10.dp)
-                                end.linkTo(parent.end, 10.dp)
-                            }
-                            .size(30.dp), tint = Color.White)
+                    IconButton({
+                        isFav=!isFav
+                        favorate=favorate?.copy(isFavorate = isFav)
+                        scope.launch {
+                            FavInfo.upsertRestaurant(customerInfo, this@RestaurantInfo,(favorate?.isFavorate?:false),favorate?.star?:0.0f)
+                        }
+                    }) {
+                        Icon(
+                            Icons.Outlined.FavoriteBorder,
+                            "Favorites",
+                            Modifier.constrainAs(_favorate) {
+                                top.linkTo(
+                                    parent.top,
+                                    10.dp
+                                );end.linkTo(parent.end, 10.dp)
+                            }.size(30.dp),
+                            tint = if(isFav) Color.Red else Color.White
+                        )
+                    }
 //                Icon(Icons.Outlined.FavoriteBorder, "Hide",
 //                    Modifier
 //                        .constrainAs(hide) {
@@ -248,6 +285,7 @@ data class RestaurantInfo private constructor(
             }
 
         }
+
     }
 
 
