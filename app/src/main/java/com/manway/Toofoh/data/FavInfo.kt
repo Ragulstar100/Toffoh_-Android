@@ -12,70 +12,145 @@ import kotlinx.serialization.json.Json
 data class FavInfo private constructor(
     val favId: String,
     val isFavorate: Boolean,
-    val star: Float,
+    val star: Float
 ) {
 
     constructor(
         resFav: ResFav,
-        isFavorate: Boolean,
-        star: Float,
-    ) : this(Json.encodeToString(resFav), isFavorate, star)
+        isFavorite: Boolean,
+        star: Float
+    ) : this(Json.encodeToString(resFav), isFavorite, star)
 
-    constructor(
-        resFav: FoodFav,
-        isFavorate: Boolean,
-        star: Float,
-    ) : this(Json.encodeToString(resFav), isFavorate, star)
-
-    @Serializable
-    data class ResFav(
-        val customerId: String,
-        val tableName: String = Table.RestaurantInfo.name,
-        val resturentId: String?,
+    constructor(foodFav: FoodFav, isFavorite: Boolean, star: Float) : this(
+        Json.encodeToString(
+            foodFav
+        ), isFavorite, star
     )
 
     @Serializable
-    data class FoodFav(
-        val customerId: String,
-        val tableName: String = Table.FoodInfo.name,
-        val foodId: Int?,
-    )
+    data class ResFav(val customerId: String, val tableName: String, val restaurantId: String?)
+
+    @Serializable
+    data class FoodFav(val customerId: String, val tableName: String, val foodId: Int?)
 
     companion object {
-        suspend fun upsertRestaurant(
-            customerInfo: CustomerInfo,
-            restaurantInfo: RestaurantInfo,
-            isFavorate: Boolean,
-            star: Float,
+        suspend fun upsertFav(
+            resFav: ResFav,
+            isFavorite: Boolean? = null,
+            isRating: Float? = null
         ) {
-            supabase.from(Table.FavInfo.name).upsert(
-                FavInfo(
-                    ResFav(
-                        customerInfo.channelId ?: "",
-                        Table.RestaurantInfo.name,
-                        restaurantInfo.channel_id
-                    ), isFavorate, star
-                )
-            )
+
+            try {
+                supabase.from(Table.FavInfo.name).insert(FavInfo(resFav, false, 0.0f))
+            } catch (e: Exception) {
+            }
+
+            supabase.from(Table.FavInfo.name).update({
+                isFavorite?.let {
+                    set("isFavorate", it)
+                }
+
+                isRating?.let {
+                    set("star", it)
+                }
+
+            }) {
+                filter {
+                    eq("favId", Json.encodeToString(resFav))
+                }
+            }
+
+            val favcount = supabase.from(Table.FavInfo.name).select {
+                filter {
+                    like("favId", "%\"restaurantId\":\"${resFav.restaurantId}\"%")
+                    eq("isFavorate", true)
+                }
+            }.decodeList<FavInfo>().size
+
+
+
+            supabase.from(Table.RestaurantInfo.name).update({
+                set("numberOfRatings", favcount)
+            }) {
+                filter {
+                    eq("channel_id", resFav.restaurantId.toString())
+                }
+            }
+
+
         }
 
-        suspend fun upsertFood(
-            customerInfo: CustomerInfo,
-            foodInfo: FoodInfo,
-            isFavorate: Boolean,
-            star: Float,
+        suspend fun upsertFav(
+            foodFav: FoodFav,
+            isFavorite: Boolean? = null,
+            isRating: Float? = null
         ) {
-            supabase.from(Table.FavInfo.name).upsert(
-                FavInfo(
-                    FoodFav(
-                        customerInfo.channelId ?: "",
-                        Table.FoodInfo.name,
-                        foodInfo.id
-                    ), isFavorate, star
-                )
-            )
+
+            try {
+                supabase.from(Table.FavInfo.name).insert(FavInfo(foodFav, false, 0.0f))
+            } catch (e: Exception) {
+            }
+
+            supabase.from(Table.FavInfo.name).update({
+                isFavorite?.let {
+                    set("isFavorate", it)
+                }
+
+                isRating?.let {
+                    set("star", it)
+                }
+
+            }) {
+                filter {
+                    eq("favId", Json.encodeToString(foodFav))
+                }
+            }
+
+            val favcount = supabase.from(Table.FavInfo.name).select {
+                filter {
+                    like("favId", "%\"foodId\":${foodFav.foodId}%")
+                    eq("isFavorate", true)
+                }
+            }.decodeList<FavInfo>().size
+
+            // {"customerId":"8b0aa90e-3c0c-4872-8fda-d191ddf70760","tableName":"RestaurantInfo","restaurantId":"c4a1e7f4-c884-4591-b57c-ed7aed7b9005"}
+
+            supabase.from(Table.FoodInfo.name).update({
+                set("numberOfRatings", favcount)
+            }) {
+                filter {
+                    FoodInfo::id eq foodFav.foodId
+                }
+            }
+
         }
 
+
+        suspend fun getFav(resFav: ResFav): FavInfo {
+            return try {
+                supabase.from(Table.FavInfo.name).select {
+                    filter {
+                        eq("favId", Json.encodeToString(resFav))
+                    }
+                }.decodeSingle<FavInfo>()
+            } catch (e: Exception) {
+                FavInfo(resFav, false, 0.0f)
+            }
+
+        }
+
+        suspend fun getFav(foodFav: FoodFav): FavInfo {
+            return try {
+                supabase.from(Table.FavInfo.name).select {
+                    filter {
+                        eq("favId", Json.encodeToString(foodFav))
+                    }
+                }.decodeSingle<FavInfo>()
+            } catch (e: Exception) {
+                FavInfo(foodFav, false, 0.0f)
+            }
+
+        }
 
     }
 

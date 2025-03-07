@@ -1,18 +1,20 @@
 package com.manway.toffoh.admin.data
 
 import Ui.data.Address
+import Ui.data.GeoLocation
 import Ui.enums.Availability
 import Ui.data.ImageUrl
-import Ui.data.LocationType
 import Ui.data.PhoneNumber
+import Ui.data.distance
 import android.annotation.SuppressLint
-import androidx.compose.foundation.Image
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 
 import androidx.compose.material3.*
@@ -22,17 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
+import com.manway.Toofoh.ViewModel.SharedViewModel
 import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.getImage
 import com.manway.Toofoh.dp.supabase
 import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.launch
 
 import kotlinx.datetime.LocalDateTime
@@ -42,7 +43,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class RestaurantInfo private constructor(
+data class RestaurantInfo(
     val id: Int?=null,
     val created_at: LocalDateTime?=null,
     val updated_at: LocalDateTime?=null,//filter
@@ -67,7 +68,27 @@ data class RestaurantInfo private constructor(
 
 
     companion object{
-        val initialRestaurantInfo=RestaurantInfo(null,null,null,null,"","","",false, Address("","",""), PhoneNumber("",""),null, listOf(),"",100.00,15.00,45, Availability.NotAvailable,0.0,0)
+        val initialRestaurantInfo = RestaurantInfo(
+            null,
+            null,
+            null,
+            null,
+            "",
+            "",
+            "",
+            false,
+            Address.intial,
+            PhoneNumber("", ""),
+            null,
+            listOf(),
+            "",
+            100.00,
+            15.00,
+            45,
+            Availability.NotAvailable,
+            0.0,
+            0
+        )
         val bucketName="restorentImages"
     }
 
@@ -76,9 +97,11 @@ data class RestaurantInfo private constructor(
     @Composable
     fun HotelItemDisplaySmall( onClick:(RestaurantInfo)->Unit){
 
-        Card(elevation = CardDefaults.cardElevation(defaultElevation = 1.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.clickable {
-            if(isAvailable==Availability.Available)   onClick(this@RestaurantInfo)
-        }.padding(5.dp)) {
+        Card(elevation = CardDefaults.cardElevation(defaultElevation = 1.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier
+            .clickable {
+                if (isAvailable == Availability.Available) onClick(this@RestaurantInfo)
+            }
+            .padding(5.dp)) {
             var randomFood by remember {
                 mutableStateOf<List<FoodInfo>?>(null)
             }
@@ -88,21 +111,21 @@ data class RestaurantInfo private constructor(
 
             scope.launch {
                 try {
-                    randomFood = supabase.from(Table.FoodInfo.name).select() {
+                    randomFood = supabase.from(Table.FoodInfo.name).select {
                         filter {
                             eq("restaurantChannelId", channel_id ?: "")
                         }
                     }.decodeList()
                 }catch (e:Exception){
-
+                    Log.e("Exception", "RestaurentInfo", e)
                 }
             }
 
             ConstraintLayout(
                 Modifier
                     .clip(MaterialTheme.shapes.medium)
-                    .width(180.dp)
-                    .height(270.dp)
+                    .width(150.dp)
+                    .height(240.dp)
                     .background(Color.White)
                     .padding(7.dp)
             ) {
@@ -119,29 +142,32 @@ data class RestaurantInfo private constructor(
                         .clip(MaterialTheme.shapes.extraSmall)
                         .fillMaxWidth()
                         .height(150.dp)
-                        .clickable {
-                            if(isAvailable==Availability.Available)      onClick(this@RestaurantInfo)
-                            // pickFood(it.name)
-                        },
-                    contentScale = ContentScale.FillBounds
-                    ,  isAvailable!=Availability.Available
+                        .clickable { if (isAvailable == Availability.Available) onClick(this@RestaurantInfo) },
+                    contentScale = ContentScale.FillBounds,
+                    isAvailable != Availability.Available
                 )
-                Column(Modifier.fillMaxWidth().constrainAs(nameText){
-                    top.linkTo(image.bottom,5.dp)
-                }) {
-                    Row(Modifier.fillMaxWidth().height(50.dp), verticalAlignment = Alignment.CenterVertically) {
+
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .constrainAs(nameText) { top.linkTo(image.bottom, 5.dp); }) {
+                    Row(Modifier
+                        .fillMaxWidth()
+                        .height(50.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             if (name.length > 23) name.substring(0, name.length - 1)
                                 .plus("...") else name,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             maxLines = 2,
-                            modifier = Modifier.fillMaxWidth(0.65f).height(50.dp)
+                            modifier = Modifier
+                                .fillMaxWidth(0.50f)
+                                .height(50.dp)
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
                             "$rating ★",
                             Modifier
-                               .height(25.dp)
+                                .height(25.dp)
                                 .background(
                                     color = Color(0xFF00897B),
                                     shape = MaterialTheme.shapes.extraSmall
@@ -151,34 +177,29 @@ data class RestaurantInfo private constructor(
                             style = MaterialTheme.typography.titleSmall
                         )
                     }
-                    Row(Modifier.fillMaxWidth().height(50.dp).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
-
-                        Text(
-                            "$estimatedDeliveryTime mins",
-                            Modifier.fillMaxHeight(),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-
-                        Text(
-                            "Starts at $minOrderAmount",
-                            Modifier.fillMaxWidth().fillMaxHeight(),
-                            style = MaterialTheme.typography.titleSmall.copy(textAlign = TextAlign.Right)
-                        )
-                    }
                 }
-
-
-
             }
         }
     }
 
     @SuppressLint("UnusedBoxWithConstraintsScope", "CoroutineCreationDuringComposition")
     @Composable
-    fun HotelItemDisplay(customerInfo: CustomerInfo,onClick:(RestaurantInfo)->Unit){
+    fun HotelItemDisplay(
+        sharedViewModel: SharedViewModel,
+        customerInfo: CustomerInfo,
+        onClick: (RestaurantInfo) -> Unit
+    ) {
 
         var foods by remember {
             mutableStateOf<List<FoodInfo>?>(null)
+        }
+
+        var currentCustomerAddress by remember {
+            mutableStateOf<Address?>(null)
+        }
+
+        LaunchedEffect(key1 = sharedViewModel.liveValue) {
+            currentCustomerAddress = sharedViewModel.liveValue.currentAddress
         }
 
 
@@ -187,53 +208,69 @@ data class RestaurantInfo private constructor(
 
         scope.launch {
             try {
-                foods = supabase.from(Table.FoodInfo.name).select() {
+                foods = supabase.from(Table.FoodInfo.name).select {
                     filter {
                         eq("restaurantChannelId", channel_id ?: "")
                     }
                 }.decodeList()
             }catch (e:Exception){
-
+                Log.e("Exception", "RestaurentInfo", e)
             }
         }
 
-        var favorate by remember {
-            mutableStateOf<FavInfo?>(null)
+        val foodFav =
+            FavInfo.ResFav(customerInfo.channelId ?: "", Table.RestaurantInfo.name, channel_id)
+        var favorite by remember {
+            mutableStateOf<FavInfo>(FavInfo(foodFav, false, 0.0f))
         }
-
-        var isFav by remember {
-            mutableStateOf(false)
-        }
-
         LaunchedEffect(Unit) {
-            try {
-                favorate=
-                    supabase.from(Table.FavInfo.name).select {
-                        filter {
-                            eq("favId", Json.encodeToString(FavInfo.ResFav(customerInfo.channelId?:"",Table.RestaurantInfo.name,channel_id)))
-                        }
-                    }.decodeSingle()
-                isFav=favorate?.isFavorate?:false
+            favorite = FavInfo.Companion.getFav(
+                FavInfo.ResFav(
+                    customerInfo.channelId ?: "",
+                    Table.RestaurantInfo.name,
+                    channel_id
+                )
+            )
 
-            }catch (e:Exception){
-
-            }
         }
 
 
 
         Column(Modifier) {
             Spacer(Modifier.height(25.dp))
-            Card(Modifier.clickable {
-                if(isAvailable==Availability.Available) onClick(this@RestaurantInfo)
-            }) {
-                ConstraintLayout(Modifier.padding(10.dp).clip(MaterialTheme.shapes.large).background(Color.Yellow).fillMaxWidth().height(330.dp)) {
+            Card(Modifier.clickable { if (isAvailable == Availability.Available) onClick(this@RestaurantInfo) }) {
+                ConstraintLayout(
+                    Modifier
+                        .padding(10.dp)
+                        .clip(MaterialTheme.shapes.large)
+                        .fillMaxWidth()
+                        .height(330.dp)
+                ) {
                     var (_favorate, textContainer, hide, hoteldistance,price) = createRefs()
                     HorizontalPager(rememberPagerState { foods?.size?:0 }) {
-                        supabase.getImage(foods?.get(it)?.imageUrl,  Modifier.fillMaxWidth().height(200.dp), contentScale = ContentScale.FillBounds,isAvailable!=Availability.Available)
+                        supabase.getImage(foods?.get(it)?.imageUrl,  Modifier
+                            .fillMaxWidth()
+                            .height(200.dp), contentScale = ContentScale.FillBounds,isAvailable!=Availability.Available)
                     }
                     /**Gps**/
-                    Text("1.5 km", Modifier.zIndex(3F).padding(1.dp).constrainAs(hoteldistance) { bottom.linkTo(textContainer.top, -10.dp);end.linkTo(parent.end,-5.dp) }.background(Color.White, MaterialTheme.shapes.small).padding(5.dp))
+                    Text(
+                        if (currentCustomerAddress == null) "Not Current Customer Address Available" else "${
+                            (currentCustomerAddress!! distance address).div(
+                                1000
+                            )
+                        } km",
+                        Modifier
+                            .zIndex(3F)
+                            .padding(1.dp)
+                            .constrainAs(hoteldistance) {
+                                bottom.linkTo(
+                                    textContainer.top,
+                                    -10.dp
+                                );end.linkTo(parent.end, -5.dp)
+                            }
+                            .background(Color.White, MaterialTheme.shapes.small)
+                            .padding(5.dp)
+                    )
 //                Text("For ${price[it]}",
 //                    Modifier
 //                        .zIndex(3F).padding(1.dp)
@@ -243,24 +280,27 @@ data class RestaurantInfo private constructor(
 //                        }
 //                        .padding(5.dp), style = MaterialTheme.typography.displayMedium)
                     IconButton({
-                        isFav=!isFav
-                        favorate=favorate?.copy(isFavorate = isFav)
+                        favorite = favorite.copy(isFavorate = !favorite.isFavorate)
                         scope.launch {
-                            FavInfo.upsertRestaurant(customerInfo, this@RestaurantInfo,(favorate?.isFavorate?:false),favorate?.star?:0.0f)
+                            FavInfo.upsertFav(foodFav, favorite.isFavorate)
                         }
                     }) {
+
                         Icon(
-                            Icons.Outlined.FavoriteBorder,
+                            Icons.Default.Favorite,
                             "Favorites",
-                            Modifier.constrainAs(_favorate) {
-                                top.linkTo(
-                                    parent.top,
-                                    10.dp
-                                );end.linkTo(parent.end, 10.dp)
-                            }.size(30.dp),
-                            tint = if(isFav) Color.Red else Color.White
+                            Modifier
+                                .constrainAs(_favorate) {
+                                    top.linkTo(
+                                        parent.top,
+                                        10.dp
+                                    );end.linkTo(parent.end, 10.dp)
+                                }
+                                .size(30.dp),
+                            tint = if (favorite.isFavorate) Color.Red else Color.White.copy(0.65f)
                         )
                     }
+
 //                Icon(Icons.Outlined.FavoriteBorder, "Hide",
 //                    Modifier
 //                        .constrainAs(hide) {
@@ -268,10 +308,25 @@ data class RestaurantInfo private constructor(
 //                            end.linkTo(parent.end, 10.dp)
 //                        }
 //                        .size(30.dp), tint = Color.White)
-                    Column(Modifier.constrainAs(textContainer) { bottom.linkTo(parent.bottom, 0.dp) }.background(Color.White).fillMaxWidth().height(130.dp)) {
-                        Row(Modifier.fillMaxWidth().height(50.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(name, maxLines = 2, modifier = Modifier.fillMaxWidth(0.80f).height(50.dp).padding(start =10.dp), style = MaterialTheme.typography.headlineMedium)
-                            Text("$rating ★", Modifier.padding(5.dp).background(color = Color(0xFF00897B), MaterialTheme.shapes.extraSmall).padding(horizontal = 3.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Column(Modifier
+                        .constrainAs(textContainer) { bottom.linkTo(parent.bottom, 0.dp) }
+                        .background(Color.White)
+                        .fillMaxWidth()
+                        .height(130.dp)) {
+                        Row(Modifier
+                            .fillMaxWidth()
+                            .height(50.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(name, maxLines = 2, modifier = Modifier
+                                .fillMaxWidth(0.80f)
+                                .height(50.dp)
+                                .padding(start = 10.dp), style = MaterialTheme.typography.headlineMedium)
+                            Text("$rating ★", Modifier
+                                .padding(5.dp)
+                                .background(
+                                    color = Color(0xFF00897B),
+                                    MaterialTheme.shapes.extraSmall
+                                )
+                                .padding(horizontal = 3.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.titleMedium)
 
                         }
                         Row(Modifier.padding( start =10.dp)) {
@@ -288,13 +343,7 @@ data class RestaurantInfo private constructor(
 
     }
 
-
-
-
-        }
-
-@Composable
-fun RestaurantInfoScope(RestaurantInfo: RestaurantInfo,scope: @Composable RestaurantInfo.()->Unit){
-    scope(RestaurantInfo)
 }
+
+
 

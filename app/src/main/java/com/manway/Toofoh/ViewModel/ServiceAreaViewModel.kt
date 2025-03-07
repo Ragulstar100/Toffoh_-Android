@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.ui.android.showErrorDialog
+import com.manway.Toofoh.ui.channel.RDialog
+import com.manway.Toofoh.ui.channel.dialogChannel
 import com.manway.toffoh.admin.data.ServiceArea
 
 import io.github.jan.supabase.postgrest.from
@@ -19,22 +21,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 
-class ServiceAreaViewModel(): ViewModel() {
+class ServiceAreaViewModel : ViewModel() {
     var list by mutableStateOf(listOf<ServiceArea>())
     private var ServiceArea: ServiceArea?=null
-    @SuppressLint("StaticFieldLeak")
-    private var context: Context?=null
 
     var errorList by mutableStateOf((0..15).map { "none$it" })
     private val _list= flow{
         while (true) {
             try {
                 emit(supabase.from(Table.ServiceArea.name).select().decodeList<ServiceArea>())
-            }catch (e: HttpRequestTimeoutException) {
-                context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
+            } catch (e: HttpRequestTimeoutException) {
+                dialogChannel.send(RDialog("Internet", "Check Your Internet Connection"))
             }
             catch (e: Exception) {
-                context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
+                dialogChannel.send(RDialog("CommonFoodViewModel", e.message.toString()))
             }
             delay(250L)
         }
@@ -45,10 +45,6 @@ class ServiceAreaViewModel(): ViewModel() {
         return this
     }
 
-    fun feed(context: Context): ServiceAreaViewModel {
-        this.context=context
-        return this
-    }
 
 //    private val _errorList= flow<List<String>>{
 //        while (true) {

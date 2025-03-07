@@ -18,15 +18,11 @@ import com.manway.Toofoh.data.ErrorState
 @Composable
 fun MyOutlinedTextField(value: String, onValueChange: (String) -> Unit, label: String, errorList:List<String>, errorIndex:Int, readOnly: Boolean = false, interact:Boolean=true, trailingIcon: @Composable (() -> Unit)= {}, leadingIcon: @Composable (() -> Unit)= {}, keyboardType: KeyboardType = KeyboardType.Text, keyboardActions: KeyboardActions = KeyboardActions.Default, modifier: Modifier = Modifier) {
     val errorMsg = errorList[errorIndex]
-    var _value by remember {
-        mutableStateOf(value)
-    }
     Column(modifier) {
         OutlinedTextField(
-            value = _value,
+            value = value,
             onValueChange ={
-                _value=it
-                onValueChange(_value)
+                onValueChange(it)
             },
             label = { Text(label) },
             readOnly = readOnly,

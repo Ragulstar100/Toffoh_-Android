@@ -22,7 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 
-class FoodViewModel(): ViewModel() {
+class FoodViewModel : ViewModel() {
     var list by mutableStateOf(listOf<FoodInfo>())
     private var FoodInfo: FoodInfo?=null
      var context: Context?=null
@@ -32,7 +32,7 @@ class FoodViewModel(): ViewModel() {
     private val _list= flow{
         while (true) {
             try {
-                emit(supabase.from(Table.FoodInfo.name).select(){}.decodeList<FoodInfo>())
+                emit(supabase.from(Table.FoodInfo.name).select {}.decodeList<FoodInfo>())
             } catch (e: HttpRequestTimeoutException) {
                 try {
                     context?.let {
@@ -65,7 +65,7 @@ class FoodViewModel(): ViewModel() {
     }
 
 
-    fun feedContext(context: android.content.Context): FoodViewModel {
+    fun feedContext(context: Context): FoodViewModel {
         this.context=context
         return this
     }

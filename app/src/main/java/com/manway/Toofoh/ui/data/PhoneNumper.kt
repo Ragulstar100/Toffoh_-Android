@@ -36,6 +36,18 @@ data class PhoneNumber(val countryCode:String,val phoneNumber:String){
     override fun toString(): String {
         return "$countryCode $phoneNumber"
     }
+
+    fun checkPhoneNumber(): Boolean {
+        val list = listOf("^\\+91[\\s-]*\\d{10}$")
+        var bol = false
+        for (it in list) {
+            bol = toString().contains(Regex(it))
+            if (bol) break
+        }
+
+        return bol
+    }
+
 }
 
 fun String.toPhoneNumber(): PhoneNumber {
@@ -284,9 +296,16 @@ fun PhoneNumberField(initialField:String="",readOnly:Boolean,errorCheck:Boolean,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex:Int,readOnly: Boolean=false,modifier: Modifier=Modifier,onPhoneNumberChanged:(PhoneNumber)->Unit) {
+fun PhoneNumberField(
+    phoneNumber: PhoneNumber,
+    errorList: List<String>,
+    errorIndex: Int,
+    readOnly: Boolean = false,
+    modifier: Modifier = Modifier,
+    onPhoneNumberChanged: (PhoneNumber) -> Unit
+) {
     val PhoneNumber = "Phone Number"
-    var phoneNumber by remember { mutableStateOf(_phoneNumber) }
+
 
     var expanded by remember { mutableStateOf(false) }
 
@@ -298,9 +317,8 @@ fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex
     // Error handling state
     var isInvalid by remember { mutableStateOf(false) }
 
-    LaunchedEffect(key1 = Unit) {
-        onPhoneNumberChanged(phoneNumber)
-    }
+
+    onPhoneNumberChanged(if (phoneNumber.countryCode.isEmpty()) phoneNumber.copy("+91") else phoneNumber)
 
 
 
@@ -308,8 +326,7 @@ fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex
         MyOutlinedTextField(
             phoneNumber.phoneNumber,
             onValueChange = {
-                phoneNumber=phoneNumber.copy(phoneNumber = it)
-                onPhoneNumberChanged(phoneNumber)
+                onPhoneNumberChanged(phoneNumber.copy(phoneNumber = it))
             },
             label = PhoneNumber,
             errorInfo = ErrorInfo(PhoneNumber, errorList[errorIndex]),
@@ -319,7 +336,10 @@ fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex
                 Row(
                     Modifier
                         .menuAnchor()
-                        .padding(start = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        .padding(start = 10.dp, end = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                    // AsyncImage(selectedItem.imageUrl ?: "", contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(selectedItem.countryCode)
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
@@ -340,8 +360,7 @@ fun PhoneNumberField(_phoneNumber: PhoneNumber,errorList:List<String>,errorIndex
                     onClick = {
                         selectedItem = item
                         expanded = false
-                        phoneNumber=phoneNumber.copy(countryCode = selectedItem.countryCode)
-                        onPhoneNumberChanged(phoneNumber) // Update validation on country change
+                        onPhoneNumberChanged(phoneNumber.copy(countryCode = selectedItem.countryCode)) // Update validation on country change
                     },
                     modifier = Modifier.width(200.dp)
                 )

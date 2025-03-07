@@ -2,20 +2,14 @@ package com.manway.Toofoh.data
 
 import Ui.data.*
 import android.annotation.SuppressLint
-import com.manway.Toofoh.ViewModel.CustomerViewModel
-import com.manway.Toofoh.ViewModel.RestaurantViewModel
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -23,10 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.manway.Toofoh.R
 
-import com.manway.Toofoh.ViewModel.OrderViewModel
 import com.manway.toffoh.admin.data.FoodInfo
 import com.manway.toffoh.admin.data.RestaurantInfo
 import com.manway.toffoh.admin.data.orderItemView
@@ -37,8 +29,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class  OrderInfo(
-    val order_id: String? = null,
+    val id: Int? = null,
     val customer_channel_id: String?,
+    val restaurant_id: Int,
     val role: Role,
     val customer_name: String,
     val customer_address: Address,
@@ -46,15 +39,16 @@ data class  OrderInfo(
     val order_items: List<OrderItem>,
     val order_total: Double,
     val order_status: OrderStatus,
-    val order_time: String? = null,
-    val delivery_time: String? = null,
+    val order_time: LocalDateTime? = null,
+    val delivery_time: LocalDateTime? = null,
     val payment_method: PaymentMethod,
     val delivery_instructions: String? = null,
 ){
 
     companion object{
-        val initialOrderInfo= OrderInfo(null,null,
-            Role.Customer,"", Address("hello","641020","geo location"),
+        val initialOrderInfo = OrderInfo(
+            null, null, 0,
+            Role.Customer, "", Address.intial,
             PhoneNumber("+91","000000000000"), listOf(),0.0,
             OrderStatus.PENDING,null,null,
             PaymentMethod.CASH_ON_DELIVERY,"demo" )
@@ -63,7 +57,10 @@ data class  OrderInfo(
     @Composable
     fun itemView(refIndex:Int,deleteAction:()->Unit){
             //Min Width 800dp
-            Row(Modifier.padding(end = 50.dp).border(1.dp, Color.LightGray, RoundedCornerShape(15)).padding(15.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier
+                .padding(end = 50.dp)
+                .border(1.dp, Color.LightGray, RoundedCornerShape(15))
+                .padding(15.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 Text(refIndex.toString(), modifier = Modifier.width(40.dp), style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.W300))
                 Text(customer_name, modifier = Modifier.width(150.dp), style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.W300))
                 Text(customer_phone_number.toString(), modifier = Modifier.width(150.dp), style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.W300))
@@ -78,14 +75,19 @@ data class  OrderInfo(
             Spacer(Modifier.height(10.dp))
     }
 
-
 }
 
 
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo?, foodList: List<FoodInfo>, orderInfo: OrderInfo, onOrderChanged:(OrderInfo)->Unit){
+fun OrderReceiptScreen(
+    customerInfo: CustomerInfo,
+    restaurantInfo: RestaurantInfo?,
+    foodList: List<FoodInfo>,
+    orderInfo: OrderInfo,
+    onOrderChanged: (OrderInfo) -> Unit
+) {
     val scope= rememberCoroutineScope()
 
     restaurantInfo?.let {
@@ -100,7 +102,7 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
                     it.first.price,
                     it.second,
                     FoodCategory.VEG,
-                    ""
+                    0
                 )
             })
         }
@@ -131,14 +133,18 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
                 // AsyncImage(customerInfo.profileUrl ?: "", "", Modifier.padding(15.dp).size(50.dp).clip(CircleShape))
                 Text(
                     restaurantInfo.name,
-                    Modifier.padding(20.dp).fillMaxWidth(0.75f),
+                    Modifier
+                        .padding(20.dp)
+                        .fillMaxWidth(0.75f),
                     fontSize = 20.sp,
                     textAlign = TextAlign.Center
                 )
             }
         },
             bottomBar = {
-                Row(Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.End) {
+                Row(Modifier
+                    .fillMaxWidth()
+                    .height(150.dp), horizontalArrangement = Arrangement.End) {
                     Text("Total: $total", Modifier.padding(15.dp))
                     Spacer(Modifier.width(25.dp))
                     Button({
@@ -159,7 +165,9 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
 
                     }, shape = MaterialTheme.shapes.small, modifier = Modifier.height(50.dp)) {
                         Box(Modifier.width(200.dp)) {
-                            Text("Order", Modifier.width(100.dp).padding(5.dp))
+                            Text("Order", Modifier
+                                .width(100.dp)
+                                .padding(5.dp))
                         }
                     }
                     Spacer(Modifier.width(25.dp))
@@ -201,7 +209,9 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
                     Text(
                         it.label,
                         color = if (it.isChecked) Color.Blue else Color.Unspecified,
-                        modifier = Modifier.width(150.dp).padding(5.dp)
+                        modifier = Modifier
+                            .width(150.dp)
+                            .padding(5.dp)
                     )
                 }
 
@@ -219,7 +229,11 @@ fun OrderReciptScreen(customerInfo: CustomerInfo, restaurantInfo: RestaurantInfo
 }
 
 @Composable
-fun OrderReciptScreen(restaurantInfo: RestaurantInfo, orderInfo: OrderInfo, onOrderChanged:(OrderInfo)->Unit){
+fun OrderReceiptScreen(
+    restaurantInfo: RestaurantInfo,
+    orderInfo: OrderInfo,
+    onOrderChanged: (OrderInfo) -> Unit
+) {
     val scope= rememberCoroutineScope()
     var foodList by remember {
         mutableStateOf<List<FoodInfo>?>(null)
@@ -362,16 +376,15 @@ fun OrderReciptScreen(restaurantInfo: RestaurantInfo, orderInfo: OrderInfo, onOr
 //    }
 }
 
-
-
-
-@Composable
-fun OrderInfoScope(orderInfo: OrderInfo, scope:@Composable OrderInfo.()->Unit){
-    scope(orderInfo)
-}
-
 @Serializable
-data class OrderItem(val id:String,val name:String,val price:Double,val quantity:Int,val foodCategory: FoodCategory,val restaurantChannelId:String){
+data class OrderItem(
+    val id: String,
+    val name: String,
+    val price: Double,
+    val quantity: Int,
+    val foodCategory: FoodCategory,
+    val restaurantId: Int
+) {
     fun total():Double{ return price*quantity }
 
     @Composable
@@ -388,26 +401,50 @@ data class OrderItem(val id:String,val name:String,val price:Double,val quantity
 
             ConstraintLayout(Modifier.fillMaxWidth()) {
                 val (vegIcon,_name,addOrder,cost) = createRefs()
-                Icon(if(foodCategory==FoodCategory.VEG) painterResource(R.drawable.veg) else painterResource(R.drawable.nonveg), "Veg/Nom Veg", Modifier.constrainAs(vegIcon) {
-                    start.linkTo(parent.start,10.dp)
-                    top.linkTo(parent.top,10.dp)
-                }.size(40.dp),tint = if(foodCategory==FoodCategory.VEG) Color(0xFF1B5E20) else Color(0xFF8B0000))
+                Icon(if(foodCategory==FoodCategory.VEG) painterResource(R.drawable.veg) else painterResource(R.drawable.nonveg), "Veg/Nom Veg", Modifier
+                    .constrainAs(vegIcon) {
+                        start.linkTo(parent.start, 10.dp)
+                        top.linkTo(parent.top, 10.dp)
+                    }
+                    .size(40.dp),
+                    tint = if (foodCategory == FoodCategory.VEG) Color(0xFF1B5E20) else Color.Red
+                )
                 Text(name,Modifier.constrainAs(_name){
                     start.linkTo(vegIcon.end,15.dp)
                     top.linkTo(parent.top,10.dp)
                 })
                 val color=MaterialTheme.colorScheme.primary
 
-                Row(Modifier.constrainAs(addOrder){ top.linkTo(parent.top,10.dp);end.linkTo(parent.end,10.dp); }.background(if (orderCount == 0 ) color else Color.White, MaterialTheme.shapes.small).border(1.dp,if (orderCount != 0 ) color else Color.White,MaterialTheme.shapes.small).width(100.dp).height(35.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Row(
+                    Modifier
+                        .constrainAs(addOrder) {
+                            top.linkTo(
+                                parent.top,
+                                10.dp
+                            );end.linkTo(parent.end, 10.dp)
+                        }
+                        .width(120.dp)
+                        .height(35.dp)
+                        .background(
+                            if (orderCount == 0) color else Color.White,
+                            MaterialTheme.shapes.small
+                        )
+                        .border(
+                            1.dp,
+                            if (orderCount != 0) color else Color.White,
+                            MaterialTheme.shapes.small
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
                     if(orderCount>0)     TextButton({ orderCount--;}) { Text("-") }
                     Text(if(orderCount==0) "Add" else orderCount.toString(), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center), color =if(orderCount==0) Color.Unspecified else color , modifier = Modifier.clickable { if(orderCount==0){ orderCount=1; }})
                     if(orderCount!=0) TextButton({ orderCount++; }) { Text("+") }
                 }
-                Text("Rs ${total()}",Modifier.constrainAs(cost){
+                Text("₹${total()}", Modifier.constrainAs(cost) {
                     end.linkTo(addOrder.end,10.dp)
-                    top.linkTo(addOrder.bottom,10.dp)
-                })
-
+                    top.linkTo(addOrder.bottom, 5.dp)
+                }, style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.End))
 
             }
 

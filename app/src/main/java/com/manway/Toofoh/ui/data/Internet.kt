@@ -2,6 +2,7 @@ package com.manway.Toofoh.ui.data
 
 
 import Ui.enums.Availability
+import android.util.Log
 import okhttp3.Connection
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -16,6 +17,7 @@ fun isUrlAvailable(urlString: String): Boolean {
         val response = client.newCall(request).execute()
         response.isSuccessful
     } catch (e: IOException) {
+        Log.e("Exception", "OrderScreen", e)
         false
     }
 }

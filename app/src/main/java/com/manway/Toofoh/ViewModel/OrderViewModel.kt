@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 
 
 @SuppressLint("StaticFieldLeak")
-class OrderViewModel(): ViewModel() {
+class OrderViewModel : ViewModel() {
     var list by mutableStateOf(listOf<OrderInfo>())
     private var orderInfo: OrderInfo?=null
     var customerInfo: CustomerInfo?=null
@@ -49,15 +49,14 @@ class OrderViewModel(): ViewModel() {
                     context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
                 }
                 catch (e: Exception) {
-                    context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
+                    context?.let { showErrorDialog("OrderViewModel", e.message.toString(), it) }
                 }
-            Log.e("adder",list.toString())
             delay(250L)
         }
     }
 
 
-    fun feed(customerInfo: CustomerInfo): OrderViewModel {
+    fun feedCustomerInfo(customerInfo: CustomerInfo): OrderViewModel {
         this.customerInfo=customerInfo
         return this
     }
@@ -76,8 +75,9 @@ class OrderViewModel(): ViewModel() {
                             CouldFunction.orderinfovalidate.first, mapOf(
                                 CouldFunction.orderinfovalidate.second[0] to orderInfo)).decodeList())
                 }
-           }
             delay(1000L)
+        }
+
 
 
     }

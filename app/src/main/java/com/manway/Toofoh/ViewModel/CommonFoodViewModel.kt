@@ -12,6 +12,8 @@ import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.data.CommonFoodInfo
 import com.manway.Toofoh.ui.android.showErrorDialog
+import com.manway.Toofoh.ui.channel.RDialog
+import com.manway.Toofoh.ui.channel.dialogChannel
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
@@ -24,7 +26,6 @@ import kotlinx.coroutines.launch
 class CommonFoodViewModel : ViewModel() {
     var list by mutableStateOf(listOf<CommonFoodInfo>())
     private var CommonFoodInfo: CommonFoodInfo? = null
-    var context: Context?=null
 
     //   var errorList by mutableStateOf((0..15).map { "none$it" })
     private val _list = flow {
@@ -32,19 +33,15 @@ class CommonFoodViewModel : ViewModel() {
             try {
                 emit(supabase.from(Table.CommonFoodInfo.name).select().decodeList<CommonFoodInfo>())
             }  catch (e: HttpRequestTimeoutException) {
-                context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
+                dialogChannel.send(RDialog("Internet", "Check Your Internet Connection"))
              }
             catch (e: Exception) {
-                context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
+                dialogChannel.send(RDialog("CommonFoodViewModel", e.message.toString()))
             }
             delay(250L)
         }
     }
 
-    fun feedContext(context: Context): CommonFoodViewModel{
-        this.context=context
-        return this
-    }
 
     fun feed(CommonFoodInfo: CommonFoodInfo): CommonFoodViewModel {
         this.CommonFoodInfo = CommonFoodInfo

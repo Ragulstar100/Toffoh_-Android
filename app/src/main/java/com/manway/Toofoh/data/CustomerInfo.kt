@@ -4,6 +4,7 @@ import Ui.data.*
 import Ui.enums.Availability
 import android.annotation.SuppressLint
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.rememberPagerState
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.manway.Toofoh.ViewModel.CustomerViewModel
+import com.manway.Toofoh.ViewModel.SharedViewModel
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.ui.data.InternetListener
@@ -54,9 +56,11 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
             PhoneNumber("+91", ""),
             "",
             FoodCategory.VEG,
-            listOf(Address("", "", "")),
+            listOf(Address.intial),
             hashMapOf("none" to "none")
         )
+        var addressPickable = true
+        var pickedAddress: Address? = null
     }
 
     @Composable
@@ -81,9 +85,9 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
     @SuppressLint("CoroutineCreationDuringComposition")
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    fun profileInfo(context: Context, colseAction: (Boolean) -> Unit) {
+    fun profileInfo(sharedViewModel: SharedViewModel, colseAction: (Boolean) -> Unit) {
 
-        var customer = viewModel<CustomerViewModel>().feedContext(context)
+        var customer = viewModel<CustomerViewModel>()
 
 
         var open by remember {
@@ -157,8 +161,12 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
 
                     Spacer(Modifier.height(10.dp))
 
-
-                    if (email != null) PhoneNumberField(phoneNumberBackup, errorList, 5) {
+                    if (email != null) PhoneNumberField(
+                        phoneNumberBackup,
+                        listOf(if (!phoneNumberBackup.checkPhoneNumber()) "Enter Valid Phone Number" else ""),
+                        0
+                    ) {
+                        phoneNumberBackup = it
                         customerInfo = customerInfo.copy(phoneNumber = it)
                     }
 
@@ -283,13 +291,15 @@ data class  CustomerInfo   (val id:Int?=null, val created_at:LocalDateTime?=null
 //                    }
 
 
-
-                    if (!errorList.filterIndexed { i, it -> !listOf(4, 8).contains(i) }.map { it.isEmpty() }.contains(false)) Row(
+                    if (!errorList.filterIndexed { i, it -> !listOf(4, 5, 8).contains(i) }
+                            .map { it.isEmpty() }
+                            .contains(false) && phoneNumberBackup.checkPhoneNumber()) Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
                         TextButton({
                             scope.launch {
+                                sharedViewModel.customerInfo = customerInfo
                                 supabase.from(Table.CustomerInfo.name).upsert(customerInfo)
                                 colseAction(false)
                             }

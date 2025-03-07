@@ -39,6 +39,8 @@ import com.manway.Toofoh.R
 import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.ui.android.showErrorDialog
+import com.manway.Toofoh.ui.channel.RDialog
+import com.manway.Toofoh.ui.channel.dialogChannel
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
@@ -96,7 +98,7 @@ class GoogleSignInClient(private val context: Context, private val oneTapClient:
         val result = try {
             oneTapClient.beginSignIn(buildSignInRequest()).await()
         } catch (e: Exception) {
-            showErrorDialog("SignInViewModel",e.message.toString(),context)
+            dialogChannel.send(RDialog("Exception:SingInViewModel", e.message.toString()))
             e.printStackTrace()
             if (e is CancellationException) throw e
             null
@@ -128,7 +130,7 @@ class GoogleSignInClient(private val context: Context, private val oneTapClient:
             supabase.auth.signOut()
             oneTapClient.signOut().await()
         } catch (e: Exception) {
-            showErrorDialog("signInViewModel",e.message.toString(),context)
+            dialogChannel.send(RDialog("Exception:SingInViewModel", e.message.toString()))
             e.printStackTrace()
             if (e is CancellationException) throw e
         }

@@ -5,6 +5,9 @@ plugins {
 
     //supabase
     kotlin("plugin.serialization") version "1.9.0"
+
+    //Google Map
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -39,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -57,6 +61,8 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.play.services.fido)
     implementation(libs.androidx.espresso.core)
+    implementation(libs.play.services.location)
+    implementation(libs.androidx.foundation.layout.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -64,6 +70,9 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    //Paytm
+    implementation("com.paytm.pg:paytm-checksum:1.2.1")
 
     //Google Login
     implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
@@ -74,6 +83,9 @@ dependencies {
     implementation ("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.compose.ui:ui-text-google-fonts:1.4.3")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0")
+    //Google Map-Android
+    implementation("com.google.maps.android:maps-compose:2.11.4")
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
 
     //supabase
 //    implementation ("org.slf4j:slf4j-api:2.0.16")
@@ -86,6 +98,13 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("dev.shreyaspatil.EasyUpiPayment:EasyUpiPayment:3.0.3")
+
+
+    //Get respose from file
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.cashfree.pg:api:2.1.17")
 
 
 

@@ -19,7 +19,10 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
+    primary = Color(0xFFFf97a7b),
+    background = Color(0xFFFDFDFD),
+    surface = Color(0xFFFDFDFD),
+    primaryContainer = Color(0xFFFDFDFD),
     secondary = PurpleGrey40,
     tertiary = Pink40
 
@@ -57,7 +60,7 @@ fun MyApplicationTheme(
 //        else -> LightColorScheme
 //    }
 
-    val colorScheme= MyColorScheme
+    val colorScheme = LightColorScheme
     MaterialTheme(
         colorScheme = colorScheme,
         typography = CustomTypography,

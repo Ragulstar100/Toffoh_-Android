@@ -1,5 +1,6 @@
 package Ui.data
 
+import android.location.Location
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,32 +33,43 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+@Suppress("UNREACHABLE_CODE")
 @Serializable
-data class Address(val address:String,val pincode:String,val geoLocation:String){
-
-    constructor(extendedAddress:ExtendedAddress, pincode: String, geoLocation: String):this(Json.encodeToString(extendedAddress),pincode,geoLocation)
-
-    fun getExtendedAddress():ExtendedAddress{
-        return try {
-            Json.decodeFromString(address)
-        }catch (e:Exception){
-            ExtendedAddress.intial
-        }
-
+data class Address(
+    val address: ExtendedAddress,
+    val pincode: String,
+    val geoLocation: GeoLocation
+) {
+    companion object {
+        val intial = Address(ExtendedAddress.intial, "", GeoLocation(0.0, 0.0))
     }
 
     override fun toString(): String {
-        return "address:$address\n"+
-                "pincode:$pincode\n"+
-                "geolocation:$geoLocation"
+        val extendedAddress = address
+        return "${if (extendedAddress.name.isNotEmpty()) (extendedAddress.name + ',') else ""}${if (extendedAddress.doorNumber.isNotEmpty()) extendedAddress.doorNumber + ',' else ""}${if (extendedAddress.location.isNotEmpty()) extendedAddress.location + ',' else ""}${extendedAddress.phoneNumber.countryCode} ${if (extendedAddress.phoneNumber.phoneNumber.isNotEmpty()) extendedAddress.phoneNumber.phoneNumber + ',' else ""}${if (extendedAddress.locationType.isNotEmpty()) extendedAddress.locationType + ',' else ""}${if (extendedAddress.landmark.isNotEmpty()) extendedAddress.landmark + ',' else ""}${if (pincode.isNotEmpty()) "pincode:$pincode," else ""}${if (geoLocation != GeoLocation.intial) "geoLocation:$geoLocation" else ""}"
+
     }
 
 }
 
+
+enum class LocationType {
+    Home, Work, Office, Other
+}
+
 @Serializable
-data class ExtendedAddress(val doorNumber:String, val location:String, val locationType:String,val phoneNumber: PhoneNumber, val landmark:String="" , val others:String="" ){
+data class ExtendedAddress(
+    val name: String,
+    val doorNumber: String,
+    val location: String,
+    val locationType: String,
+    val phoneNumber: PhoneNumber,
+    val landmark: String = "",
+    val others: String = ""
+) {
     companion object{
-        val intial=ExtendedAddress("","",LocationType.Home.name,PhoneNumber("",""),"","")
+        val intial =
+            ExtendedAddress("", "", "", LocationType.Home.name, PhoneNumber("", ""), "", "")
     }
 
     override fun toString(): String {
@@ -69,130 +81,51 @@ data class ExtendedAddress(val doorNumber:String, val location:String, val locat
 
 }
 
-//@Serializable
-//data class Address(val address:String,val pincode:String,val geoLocation:String,val location:String,val locationType:LocationType){
-//    override fun toString(): String {
-//        return "locationType:$locationType\n"+
-//                "location:$location\n"+
-//                "address:$address\n"+
-//                "pincode:$pincode\n"+
-//                "geolocation:$geoLocation"
-//    }
-//}
+@Serializable
+data class GeoLocation(val latitude: Double, val longitude: Double) {
+    companion object {
+        val intial = GeoLocation(0.0, 0.0)
+    }
 
-enum class LocationType{
-    Home,Work,Office,Other
 }
 
-fun MutableState<ArrayList<Address>>.add(address: Address){
-    val addressList= arrayListOf<Address>().apply {
+infix fun Address.distance(address: Address): Float {
+
+
+    val locationA = Location("Location A")
+    locationA.latitude = this.geoLocation.latitude
+    locationA.longitude = this.geoLocation.longitude
+    val locationB = Location("Location B")
+    locationB.latitude = address.geoLocation.latitude
+    locationB.longitude = address.geoLocation.longitude
+
+
+    return locationB.distanceTo(locationA)
+}
+
+fun MutableState<ArrayList<Address>>.add(address: Address) {
+    val addressList = arrayListOf<Address>().apply {
         addAll(value)
     }
     addressList.add(address)
-    value=addressList
+    value = addressList
 }
 
-fun MutableState<ArrayList<Address>>.update(index:Int, address: Address){
-    val addressList= arrayListOf<Address>().apply {
+fun MutableState<ArrayList<Address>>.update(index: Int, address: Address) {
+    val addressList = arrayListOf<Address>().apply {
         addAll(value)
     }
-    addressList[index]=address
-    value=addressList
+    addressList[index] = address
+    value = addressList
 }
 
-fun MutableState<ArrayList<Address>>.delete(index:Int){
-    val addressList= arrayListOf<Address>().apply {
+fun MutableState<ArrayList<Address>>.delete(index: Int) {
+    val addressList = arrayListOf<Address>().apply {
         addAll(value)
     }
     addressList.removeAt(index)
-    value=addressList
+    value = addressList
 }
-
-@Composable
-fun AddressField(address: MutableState<Address>, errorList:List<String>, errorIndex:Int, modifier: Modifier = Modifier, trailIconAddress:@Composable ()->Unit={}, trailIconPincode:@Composable ()->Unit={}, trailIconGeolocation:@Composable ()->Unit={}) {
-    Column(modifier = modifier) {
-        OutlinedTextField(
-            value = address.value.address,
-            onValueChange = { address.value = address.value.copy(address = it) },
-            label = { Text("Address") },
-            trailingIcon = trailIconAddress,
-            singleLine = false
-        )
-        OutlinedTextField(
-            value = address.value.pincode,
-            onValueChange = { address.value = address.value.copy(pincode = it) },
-            label = { Text("Pin code") },
-            trailingIcon = trailIconPincode,
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = address.value.geoLocation,
-            onValueChange = { address.value = address.value.copy(geoLocation = it) },
-            label = { Text("Geolocation") },
-            trailingIcon =trailIconGeolocation ,
-            singleLine = true
-        )
-        Text(errorList[errorIndex], color = Color.Red )
-    }
-}
-
-@Composable
-fun AddressField(list:List<Address>,index: Int, onAddressChange:(List<Address>)->Unit){
-
-    var address by remember {
-        mutableStateOf(list[index])
-    }
-    LaunchedEffect(address){
-        onAddressChange(list)
-    }
-
-    Column(Modifier.scale(0.85f).padding(10.dp).fillMaxWidth().border(1.dp,
-        MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small).padding(10.dp),horizontalAlignment = Alignment.CenterHorizontally) {
-//        Row(Modifier.scale(0.75f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-//            FilterChip(address.locationType==LocationType.Home,{
-//                address=address.copy(locationType = LocationType.Home)
-//            },{
-//                Text("Home",style = MaterialTheme.typography.bodySmall)
-//            })
-//            FilterChip(address.locationType==LocationType.Work,{
-//                address=address.copy(locationType = LocationType.Work)
-//            },{
-//                Text("Work",style = MaterialTheme.typography.bodySmall)
-//            })
-//            FilterChip(address.locationType==LocationType.Office,{
-//                address=address.copy(locationType = LocationType.Office)
-//            },{
-//                Text("Office",style = MaterialTheme.typography.bodySmall)
-//            })
-//            FilterChip(address.locationType==LocationType.Other,{
-//                address=address.copy(locationType = LocationType.Other)
-//            },{
-//                Text("Other",style = MaterialTheme.typography.bodySmall)
-//            })
-//        }
-        Row(Modifier.fillMaxWidth(),horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton({
-
-                onAddressChange(list.apply {
-                  //  removeAt(index)
-                })
-            }) {
-                Icon(
-                    Icons.Default.Delete,
-                    "",
-                    Modifier.size(35.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        OutlinedTextField(address.address,{address=address.copy(address = it)},label = { Text("Address") },shape = MaterialTheme.shapes.small)
-        OutlinedTextField(address.pincode,{address=address.copy(pincode = it)},label = { Text("Pincode") },shape = MaterialTheme.shapes.small)
-
-        //   OutlinedTextField(address.location,{address=address.copy(location = it)},label = { Text("Location") },shape = MaterialTheme.shapes.small)
-    }
-}
-
 
 
 

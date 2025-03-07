@@ -1,15 +1,13 @@
 package Screen
 
 import Ui.data.Address
-import Ui.data.AddressField
-import Ui.data.Filter
-import Ui.data.LocationType
 import Ui.enums.Availability
-import android.annotation.SuppressLint
-import android.content.Context
+import android.os.Build
+
+import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
 import com.manway.Toofoh.ViewModel.FoodViewModel
 import com.manway.Toofoh.ViewModel.RestaurantViewModel
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,16 +30,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
-import com.manway.Toofoh.R
 import com.manway.toffoh.admin.data.RestaurantInfo
-import com.manway.Toofoh.data.CommonFoodInfo
 import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.dp.getImage
-import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 
@@ -52,41 +46,52 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.outlined.FavoriteBorder
 
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 
 import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
+import com.manway.Toofoh.R
+import com.manway.Toofoh.Screen.AddressScreen
+import com.manway.Toofoh.Screen.LocationPermissionHandler
 
-import com.manway.Toofoh.ViewModel.CommonFoodViewModel
+import com.manway.Toofoh.ViewModel.SharedViewModel
 import com.manway.Toofoh.android.LocalDb
+import com.manway.Toofoh.data.FoodCategory
 import com.manway.Toofoh.screen
 import com.manway.toffoh.admin.data.FoodInfo
 import io.github.jan.supabase.postgrest.from
+import java.util.Locale
 
 
-
-
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
+@OptIn(
+    ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class
+)
 @Composable
-fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, settingsListener: (screen) -> Unit, modifier: Modifier=Modifier, restorentPickListner: (RestaurantInfo) -> Unit ){
+fun MainScreen(
+    sharedViewModel: SharedViewModel,
+    localDb: LocalDb,
+    customerInfo: CustomerInfo,
+    settingsListener: (screen) -> Unit,
+    modifier: Modifier = Modifier,
+    restorentPickListner: (RestaurantInfo) -> Unit
+) {
 
     //Common
     val scope= rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
 
-
-
     //Fields
     var searchField by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf<Address?>(Address("","641020","")) }
-
+    var address by remember { mutableStateOf<Address?>(localDb.gerLocation()) }
 
     //ViewModels
     val restorent = viewModel<RestaurantViewModel>()
-    restorent.search(searchField)
-    val food= viewModel<FoodViewModel>().feedContext(context)
+    val food = viewModel<FoodViewModel>()
 
     //Filters
     var aboveThreeStar by remember {
@@ -105,6 +110,10 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
         //isAvailable
     }
 
+//    var internetAvailable by remember {
+//        mutableStateOf(false)
+//    }
+
     /**showHider**/
     //BottomSheet Pages
     val (none,locationPicker,showFilter,search) = listOf(0,1,2,3)
@@ -113,8 +122,8 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
     }
 
     //Launch and Listners
-
-    LaunchedEffect(key1 = Unit){
+    println(restorent.list.map { it.id })
+    LaunchedEffect(key1 = sharedViewModel.liveValue) {
         restorent.recommended(0L..10L)
     }
 
@@ -122,24 +131,98 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
         address?.let {
             restorent.pincode=it.pincode
         }
+
+        if (address == null) {
+            bottomtab = locationPicker
+            scope.launch { scaffoldState.bottomSheetState.expand() }
+        }
     }
 
 
+    BackHandler {
+        sharedViewModel.activity?.finishAffinity()
+    }
+
+
+
+
+
+
     //Search Field
-    val serarchView:@Composable ()->Unit ={
+    val searchView: @Composable () -> Unit = {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+
+            var tabChange by remember {
+                mutableStateOf(true)
+            }
+
+            restorent.search(!tabChange, searchField)
 
 
 
                 OutlinedTextField(searchField, {
                     searchField = it
-                },label = { Text("Search Your Resturents") }, leadingIcon = {Icon(Icons.Default.Search, "",tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))}, shape = MaterialTheme.shapes.medium,modifier = Modifier.fillMaxWidth(0.7f).scale(0.80f), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.primary,focusedBorderColor = MaterialTheme.colorScheme.primary))
+                },
+                    placeholder = { Text("Search Your Resturents") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            "",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .scale(0.80f),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+
+            Row(
+                Modifier
+                    .fillMaxWidth(0.90f)
+                    .border(1.dp, Color.LightGray.copy(0.5f), MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+
+                Text(
+                    "Resturents",
+                    Modifier
+                        .fillMaxWidth(0.5f)
+                        .background(if (!tabChange) Color.Transparent else Color.White)
+                        .padding(10.dp)
+                        .clickable {
+                            tabChange = false
+
+                        },
+                    style = MaterialTheme.typography.bodySmall
+                )
 
 
-                Text("Resturent List")
+                Text(
+                    "Foods",
+                    Modifier
+                        .fillMaxWidth()
+                        .background(if (tabChange) Color.Transparent else Color.White)
+                        .padding(10.dp)
+                        .clickable {
+                            tabChange = true
+
+                        },
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+            }
 
 
-                LazyVerticalGrid(GridCells.Fixed(2),modifier = Modifier.width(400.dp)) {
+
+
+            LazyVerticalGrid(GridCells.Fixed(3), modifier = Modifier.fillMaxWidth()) {
                     restorent.list.forEach {
                         item {
                             it.HotelItemDisplaySmall {
@@ -155,6 +238,21 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
     }
 
 
+    //                        Row(Modifier.fillMaxWidth().height(35.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, alignment = Alignment.End)) {
+//                            IconButton({
+//                                settingsListener(screen.orders)
+//                            }) {
+//                                Icon(Icons.Default.ShoppingCart, "Cart", tint =MaterialTheme.colorScheme.primary)
+//                            }
+//
+////                            if (false) IconButton({
+////                                settingsListener(screen.favourite)
+////                            }) {
+////                                Icon(Icons.Default.FavoriteBorder ,"Cart", tint =MaterialTheme.colorScheme.primary)
+////                            }
+//                        }
+
+
 
 
 
@@ -168,7 +266,7 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
 
         //Serach Field
         if(bottomtab==search){
-            serarchView()
+            searchView()
         }
 
         val (priceRange, starRating, cuisine) = listOf("Price Range", "Star Rating", "Cuisine")
@@ -178,8 +276,12 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
             mutableStateOf(priceRange)
         }
 
-        if (bottomtab==locationPicker) LocationPicker(customerInfo, context,{ scope.launch { bottomtab=none } }){
+        if (bottomtab == locationPicker) LocationPicker(
+            sharedViewModel,
+            customerInfo,
+            { scope.launch { bottomtab = none } }) {
             address=it
+            sharedViewModel.currentAddress = it
             localDb.setLocation(it)
             restorent.pincode = it.pincode
             bottomtab=none
@@ -187,14 +289,48 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
 
 
         if (bottomtab==showFilter) {
-            Column(Modifier.fillMaxWidth().height(450.dp).padding(10.dp)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .height(450.dp)
+                    .padding(10.dp)
+            ) {
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(5.dp), horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton({ bottomtab = none }) {
+                        Icon(Icons.Default.Close, "Close Action")
+                    }
+                }
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(25.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(priceRange, Modifier.clickable { tab = priceRange }.width(80.dp).border(1.dp, if (tab != priceRange) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
-                    )
-                    Text(starRating, Modifier.clickable { tab = starRating }.width(80.dp).border(1.dp, if (tab != starRating) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.medium).padding(5.dp), style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
-
+                    Text(
+                        priceRange,
+                        Modifier
+                            .clickable { tab = priceRange }
+                            .width(80.dp)
+                            .border(
+                                1.dp,
+                                if (tab != priceRange) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(5.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
+                    Text(
+                        starRating,
+                        Modifier
+                            .clickable { tab = starRating }
+                            .width(80.dp)
+                            .border(
+                                1.dp,
+                                if (tab != starRating) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(5.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
                     if (false) Text(cuisine,
                         Modifier
                             .clickable { tab = cuisine }
@@ -205,10 +341,10 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
                                 MaterialTheme.shapes.medium
                             )
                             .padding(5.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
-                    )
+                        style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center))
                 }
                 when (tab) {
+
                     starRating -> {
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -278,68 +414,66 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
 
                     }
 
-                    cuisine -> {
-                        val cuisineList = listOf(
-                            "Latin American",
-                            "Fusion",
-                            "British",
-                            "Vegan",
-                            "North American",
-                            "African",
-                            "Caribbean",
-                            "Chinese",
-                            "Italian",
-                            "Japanese",
-                            "Vietnamese",
-                            "French",
-                            "Vegetarian",
-                            "German",
-                            "Spanish",
-                            "Korean",
-                            "Mexican",
-                            "Indian",
-                            "Thai",
-                            "Greek",
-                            "Tamil",
-                            "South American",
-                            "Mediterranean",
-                            "Middle Eastern",
-                            "dairy",
-                            "mine"
-                        )
-                        var cuisineSelected by remember {
-                            mutableStateOf(cuisineList.map {
-                                Filter(
-                                    "${Table.FoodInfo.name}.foodType",
-                                    it,
-                                    false
-                                )
-                            })
-                        }
-                        restorent.filterList = cuisineSelected.filter { it.enabled }
+//                    cuisine -> {
+//                        val cuisineList = listOf(
+//                            "Latin American",
+//                            "Fusion",
+//                            "British",
+//                            "Vegan",
+//                            "North American",
+//                            "African",
+//                            "Caribbean",
+//                            "Chinese",
+//                            "Italian",
+//                            "Japanese",
+//                            "Vietnamese",
+//                            "French",
+//                            "Vegetarian",
+//                            "German",
+//                            "Spanish",
+//                            "Korean",
+//                            "Mexican",
+//                            "Indian",
+//                            "Thai",
+//                            "Greek",
+//                            "Tamil",
+//                            "South American",
+//                            "Mediterranean",
+//                            "Middle Eastern",
+//                            "dairy",
+//                            "mine"
+//                        )
+//
+//                        var cuisineSelected by remember {
+//                            mutableStateOf(cuisineList.map {
+//                                Filter(
+//                                    "${Table.FoodInfo.name}.foodType",
+//                                    it,
+//                                    false
+//                                )
+//                            })
+//                        }
+//                        restorent.filterList = cuisineSelected.filter { it.enabled }
+//
+//                        Column(
+//                            Modifier
+//                                .fillMaxWidth()
+//                                .verticalScroll(rememberScrollState())) {
+//                            cuisineSelected.forEachIndexed { i, item ->
+//                                Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+//                                    Checkbox(item.enabled, {
+//                                        cuisineSelected = cuisineSelected.mapIndexed { j, it ->
+//                                            if (i == j) it.copy(enabled = !it.enabled) else it
+//                                        }
+//                                    })
+//                                    Text(item.value, style = MaterialTheme.typography.bodyMedium)
+//                                }
+//                            }
+//                        }
+//
+//                    }
 
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())) {
-                            cuisineSelected.forEachIndexed { i, item ->
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(5.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Checkbox(item.enabled, {
-                                        cuisineSelected = cuisineSelected.mapIndexed { j, it ->
-                                            if (i == j) it.copy(enabled = !it.enabled) else it
-                                        }
-                                    })
-                                    Text(item.value, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                        }
 
-                    }
                 }
 
 
@@ -347,48 +481,108 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
         }
 
     }, scaffoldState = scaffoldState) {
+
+
+//        if(!internetAvailable) Dialog({}) {
+//            Column(Modifier.width(300.dp).height(250.dp).background(Color.White, shape = MaterialTheme.shapes.medium), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+//                Text("No Internet Connection")
+//            }
+//        }
+
+
+        LocationPermissionHandler(sharedViewModel) {
+
+        }
+
+
         LazyColumn {
             //Location
+
             item {
                 Spacer(Modifier.height(50.dp))
-                //Address Location
-                Row(Modifier.fillMaxWidth().padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocationOn, "", Modifier.size(35.dp), tint = MaterialTheme.colorScheme.primary)
+                ConstraintLayout(Modifier.fillMaxWidth()) {
 
-                    Column(Modifier.fillMaxWidth(0.85f).clickable {
-                        scope.launch { scaffoldState.bottomSheetState.expand() }
-                        bottomtab=locationPicker
-                    }) {
+                    val (icon, pincode, _address, profileIcon) = createRefs()
 
-                        address?.let {
-                            Text(it.pincode, style = MaterialTheme.typography.titleLarge)
-                            Text(it.address, style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth().padding(end = 8.dp), maxLines = 1)
+                    Icon(
+                        Icons.Default.LocationOn, "",
+                        Modifier
+                            .constrainAs(icon) {
+                                top.linkTo(parent.top)
+                                bottom.linkTo(parent.bottom)
+                            }
+                            .size(35.dp), tint = MaterialTheme.colorScheme.primary)
 
-                        }
 
-                    }
+                    Text(
+                        address?.pincode ?: "Select Your Location",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier
+                            .clickable {
+                                bottomtab = locationPicker
+                                scope.launch { scaffoldState.bottomSheetState.expand() }
+                            }
+                            .constrainAs(pincode) {
+                                top.linkTo(parent.top)
+                                start.linkTo(icon.end, 10.dp)
+                            })
+                    Text(
+                        (address ?: "").toString(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .clickable {
+                                bottomtab = locationPicker
+                                scope.launch { scaffoldState.bottomSheetState.expand() }
+                            }
+                            .constrainAs(_address) {
+                                top.linkTo(pincode.bottom)
+                                start.linkTo(pincode.start)
+                            }
+                            .widthIn(max = 250.dp),
+                        maxLines = 2)
 
-                    Text(customerInfo.name, Modifier.clickable {
-                        settingsListener(screen.Settings)
-                    }.drawBehind {
-                        // Calculate center coordinates
-                        val centerX = size.width / 2
-                        val centerY = size.height / 2-5f
 
-                        // Draw the circle
-                        drawCircle(color = Color(0xFFB2EBF2), radius = 50f, // Adjust radius as needed
-                            center = Offset(centerX, centerY)
-                        )
+                    if (customerInfo.name.isNotEmpty()) Text(
+                        customerInfo.name.uppercase(Locale.getDefault())[0].toString(),
+                        modifier = Modifier
+                            .clickable {
+                                settingsListener(screen.Settings)
+                            }
+                            .constrainAs(profileIcon) {
+                                top.linkTo(parent.top)
+                                end.linkTo(parent.end, 10.dp)
+                                bottom.linkTo(parent.bottom)
+                            }
+                            .size(50.dp)
+                            .background(Color.Cyan.copy(0.35f), CircleShape)
+                            .padding(top = 10.dp),
+                        softWrap = false,
+                        style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
 
-                        // Draw the text content
 
-                    }.size(50.dp).padding(5.dp), softWrap =false, style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
+
                 }
             }
 
             item {
                 Spacer(Modifier.height(10.dp))
-                Image(painterResource(R.drawable.sample_banner),"",Modifier.padding(10.dp).clip(MaterialTheme.shapes.medium).fillMaxWidth().height(150.dp),contentScale = ContentScale.FillBounds)
+                Text(
+                    "Toffoh",
+                    Modifier
+                        .padding(10.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .background(MaterialTheme.colorScheme.primary),
+                    color = Color.White,
+                    style = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Center)
+                )
+//                Image(painterResource(R.drawable.sample_banner),"",
+//                    Modifier
+//                        .padding(10.dp)
+//                        .clip(MaterialTheme.shapes.medium)
+//                        .fillMaxWidth()
+//                        .height(150.dp),contentScale = ContentScale.FillBounds)
             }
 
 
@@ -398,7 +592,10 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
                 var resizeableText by remember { mutableStateOf(style) }
 
 
-                Text("What's On Your Mind?",modifier = Modifier.width(400.dp),softWrap = false, onTextLayout = {result->
+                Text(
+                    "What's On Your Mind?", modifier = Modifier
+                        .width(400.dp)
+                        .padding(start = 10.dp), softWrap = false, onTextLayout = { result ->
                     if(result.didOverflowWidth){
                         resizeableText=resizeableText.copy(fontSize = resizeableText.fontSize*0.9)
                     }
@@ -407,66 +604,114 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
             }
 
             stickyHeader {
-                Box(Modifier.fillMaxWidth().height(50.dp).background(Color.White))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .background(Color.White)
+                )
 
 
 
-                Column(Modifier.background(Color.White).fillMaxWidth()) {
+                Column(
+                    Modifier
+                        .background(Color.White)
+                        .fillMaxWidth()
+                ) {
 
                     //Search
-                    Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Start,verticalAlignment = Alignment.CenterVertically) {
-                        AssistChip({
-                            bottomtab =if(bottomtab!=showFilter) showFilter else none;scope.launch { scaffoldState.bottomSheetState.expand() }
-                        }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary), label = { Icon(painterResource(R.drawable.filter), "", Modifier.size(20.dp, 40.dp), tint = MaterialTheme.colorScheme.primary) },
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        AssistChip(
-                            {
-                                bottomtab =if(bottomtab!=search) search else none;
-                                scope.launch { scaffoldState.bottomSheetState.expand() }
-                            },
-                            {
-                                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center) {
-                                    if (searchField.isEmpty()) Text("Search Your Dishes", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) else Text(searchField)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(.70f).height(40.dp).padding(horizontal = 20.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            leadingIcon = {
-                                Icon(Icons.Filled.Search, "Search", Modifier.size(25.dp), tint = MaterialTheme.colorScheme.primary)
-                            },
-                            trailingIcon = {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
 
-                            })
+                        //   OutlinedTextField(searchField, { searchField = it }, placeholder = { Text("Search Your Dishes") }, readOnly = true, leadingIcon = {Icon(Icons.Default.Search, "",tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))}, shape = MaterialTheme.shapes.medium,modifier = Modifier.fillMaxWidth(0.7f), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color(0xFFEF4649),focusedBorderColor = Color(0xFFEF4649)))
+                        AssistChip(
+                            onClick = {
+                                bottomtab =
+                                    search; scope.launch { scaffoldState.bottomSheetState.expand() }
+                            },
+                            label = {
+                                Text(
+                                    "Search Your Dishes",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            },
+                            shape = MaterialTheme.shapes.small,
+                            border = BorderStroke(1.dp, Color(0xFFEF4649)),
+                            modifier = Modifier
+                                .weight(1.0f)
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = Color.Transparent,
+                                leadingIconContentColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+
+                        Spacer(Modifier.width(10.dp))
 
                         Column {
                             Switch(switchVegMode, {
                                 switchVegMode = !switchVegMode
-                                //   RestaurantViewModel.vegOnly = switchVegMode
+                                restorent.filterFoodCategory(if (switchVegMode) FoodCategory.VEG else FoodCategory.NON_VEG)
+                                sharedViewModel.foodCategory =
+                                    if (switchVegMode) FoodCategory.VEG else FoodCategory.NON_VEG
 
-                            }, Modifier.width(50.dp).height(30.dp), thumbContent = {
+                            },
+                                Modifier
+                                    .width(50.dp)
+                                    .height(30.dp),
+                                thumbContent = {
                                 Icon(Icons.Default.Check, "", Modifier.size(15.dp))
-                            }, colors = SwitchDefaults.colors(uncheckedBorderColor = Color.White))
+                                },
+                                colors = SwitchDefaults.colors(
+                                    uncheckedBorderColor = Color.White,
+                                    checkedBorderColor = Color.White,
+                                    checkedTrackColor = Color(0xFF4CAF50),
+                                    uncheckedTrackColor = Color.Red.copy(0.5f),
+                                    checkedThumbColor = Color.White,
+                                    uncheckedThumbColor = Color.White
+                                )
+                            )
 
-                            Text("Veg Only", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+
+                            Text(
+                                if (switchVegMode) "Veg Only" else "Non Veg",
+                                style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center),
+                                color = Color.DarkGray
+                            )
 
                         }
 
-                        Row(Modifier.fillMaxWidth().height(35.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, alignment = Alignment.End)) {
-                            IconButton({
-                                settingsListener(screen.orders)
-                            }) {
-                                Icon(Icons.Default.ShoppingCart, "Cart", tint =MaterialTheme.colorScheme.primary)
-                            }
+                        Spacer(Modifier.width(10.dp))
 
-//                            if (false) IconButton({
-//                                settingsListener(screen.favourite)
-//                            }) {
-//                                Icon(Icons.Default.FavoriteBorder ,"Cart", tint =MaterialTheme.colorScheme.primary)
-//                            }
-                        }
-
-
+                        AssistChip(
+                            {
+                                bottomtab =
+                                    if (bottomtab != showFilter) showFilter else none;scope.launch { scaffoldState.bottomSheetState.expand() }
+                            },
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            label = {
+                                Icon(
+                                    painterResource(R.drawable.filter),
+                                    "",
+                                    Modifier.size(20.dp, 40.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                        )
 
                     }
 
@@ -523,14 +768,35 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
 
 
             item {
-                Box(Modifier.fillMaxWidth(), Alignment.Center) {
-                    HorizontalDivider(Modifier.fillMaxWidth())
-                    Text("Recommended", modifier = Modifier.fillMaxWidth(0.45f).background(Color.Unspecified).padding(10.dp),
-                        style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .drawWithContent {
+                            // Calculate line coordinates
+
+                            val lineY = size.height / 2
+                            val lineStartX = 30f
+                            val lineEndX = size.width - 30f
+                            // Draw the line
+                            drawLine(
+                                color = Color.LightGray, // Adjust color as needed
+                                start = Offset(lineStartX, lineY),
+                                end = Offset(lineEndX, lineY),
+                                strokeWidth = 2f // Adjust stroke width as needed
+                            )
+                            drawContent()
+                        }, contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Recommented",
+                        modifier = Modifier
+                            .background(Color.White)
+                            .padding(10.dp),
+                        style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
+                    )
                 }
 
-
-                LazyHorizontalGrid(GridCells.Fixed(2),Modifier.height(500.dp)) {
+                LazyHorizontalGrid(GridCells.Fixed(2), Modifier.height(480.dp)) {
                     restorent.recommendlist.forEach {
                         item {
                             it.HotelItemDisplaySmall(restorentPickListner)
@@ -543,25 +809,37 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
 
 
             item {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .drawWithContent {
+                            // Calculate line coordinates
 
-                Text("All Hotels", modifier = Modifier.fillMaxWidth().padding(10.dp)
-                    .drawBehind {
-                        // Calculate line coordinates
-                        val lineY = size.height / 2 // Center vertically
-                        val lineStartX = 0f
-                        val lineEndX = size.width
-                        // Draw the line
-                        drawLine(color = Color.LightGray, // Adjust color as needed
-                            start = Offset(lineStartX, lineY),
-                            end = Offset(lineEndX, lineY),
-                            strokeWidth = 2f // Adjust stroke width as needed
-                        )
-                    },
-                    style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
-                )
+                            val lineY = size.height / 2
+                            val lineStartX = 30f
+                            val lineEndX = size.width - 30f
+                            // Draw the line
+                            drawLine(
+                                color = Color.LightGray, // Adjust color as needed
+                                start = Offset(lineStartX, lineY),
+                                end = Offset(lineEndX, lineY),
+                                strokeWidth = 2f // Adjust stroke width as needed
+                            )
+                            drawContent()
+                        }, contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "All Hotels",
+                        modifier = Modifier
+                            .background(Color.White)
+                            .padding(10.dp),
+                        style = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
+                    )
+                }
+
 
                 if (address != null) if (restorent.list.isNotEmpty()) restorent.list.forEach {
-                    it.HotelItemDisplay(customerInfo,restorentPickListner)
+                    it.HotelItemDisplay(sharedViewModel, customerInfo, restorentPickListner)
                 }
                 else Text("Please select location")
 
@@ -577,23 +855,33 @@ fun MainScreen(localDb: LocalDb,context: Context, customerInfo: CustomerInfo, se
 }
 
 
-
-
-
 //#f97a7b
-
-
 
 
 //Optimize this will be
 @Composable
-fun LocationPicker(customerInfo: CustomerInfo,context: Context, closeAction: () -> Unit, pickAddress: (Address) -> Unit, ) {
+fun LocationPicker(
+    sharedViewModel: SharedViewModel,
+    _customerInfo: CustomerInfo,
+    closeAction: () -> Unit,
+    pickAddress: (Address) -> Unit,
+) {
     val scope= rememberCoroutineScope()
-    var address= viewModel<RestaurantViewModel>().feedContext(context)
+    var address = viewModel<RestaurantViewModel>()
+
+    var customerInfo by remember {
+        mutableStateOf(_customerInfo)
+    }
 
 
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer).verticalScroll(rememberScrollState()),horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
 
         var searchField by remember {
             mutableStateOf("")
@@ -618,12 +906,46 @@ fun LocationPicker(customerInfo: CustomerInfo,context: Context, closeAction: () 
             }
         }
 
-        Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.Start) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(5.dp), horizontalArrangement = Arrangement.Start
+        ) {
             Spacer(Modifier.width(10.dp))
-            OutlinedTextField(searchField,{searchField=it}, leadingIcon = { Icon(Icons.Default.Search,"Search",Modifier.size(30.dp),tint = MaterialTheme.colorScheme.primary) }, shape = MaterialTheme.shapes.medium, colors = TextFieldDefaults.colors(focusedContainerColor = Color.White,unfocusedContainerColor = Color.White, focusedIndicatorColor = Color.Transparent,unfocusedIndicatorColor = Color.Transparent ), maxLines =2, textStyle =MaterialTheme.typography.bodySmall , modifier = Modifier.fillMaxWidth(0.75f).height(50.dp))
+            OutlinedTextField(
+                searchField,
+                { searchField = it },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        "Search",
+                        Modifier.size(30.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                shape = MaterialTheme.shapes.medium,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                maxLines = 2,
+                textStyle = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth(0.75f)
+                    .height(50.dp)
+            )
+
             IconButton({closeAction()}){
-                Icon(Icons.Default.LocationOn,"Close Action",Modifier.size(30.dp),tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.Default.LocationOn,
+                    "Location Action",
+                    Modifier.size(30.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
+
             Spacer(Modifier.width(10.dp))
             IconButton({closeAction()}){
                 Icon(Icons.Default.Close,"Close Action")
@@ -635,40 +957,45 @@ fun LocationPicker(customerInfo: CustomerInfo,context: Context, closeAction: () 
         Spacer(Modifier.height(10.dp))
 
         if (!switchCustomerAddress) address.unchangedList.filter {
-            Pattern.compile(searchField).matcher(it.address.address).find() || Pattern.compile(
+            Pattern.compile(searchField).matcher(it.address.toString()).find() || Pattern.compile(
                 searchField
             ).matcher(it.address.pincode).find()
         }.forEach {
-            Column(Modifier.padding(15.dp)
+            Column(
+                Modifier
+                    .padding(15.dp)
                     .clickable {
                         pickAddress(it.address)
                         closeAction()
                     }) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(it.address.pincode,style = MaterialTheme.typography.bodyMedium)
-                    Text(it.address.geoLocation,style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        it.address.geoLocation.toString(),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
-                Text(it.address.address,style = MaterialTheme.typography.bodyLarge)
+                Text(it.address.toString(), style = MaterialTheme.typography.bodyLarge)
             }
 
         }
-        else customerInfo.address.filter {
-            Pattern.compile(searchField).matcher(it.address).find() || Pattern.compile(searchField)
-                .matcher(it.pincode).find()
-        }.forEach {
-            Column(Modifier.padding(15.dp).clickable {
-                        pickAddress(it)
-                        closeAction()
+        else {
+            AddressScreen(sharedViewModel, {
+                scope.launch {
+                    supabase.from(Table.CustomerInfo.name).update({
+                        set("address", it)
                     }) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(it.address, style = MaterialTheme.typography.bodyMedium)
-                    Text(it.pincode, style = MaterialTheme.typography.bodySmall)
+                        filter {
+                            eq("id", customerInfo.id ?: "")
+                        }
+                    }
+                    customerInfo = customerInfo.copy(address = it)
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(it.geoLocation, style = MaterialTheme.typography.bodyLarge)
+            }, null) {
+                pickAddress(it)
+                closeAction()
             }
-
         }
     }
 
@@ -691,16 +1018,37 @@ fun customerItemView(restaurant: RestaurantInfo,restaurantPickListner:(Restauran
         }.decodeList()
     }
 
-    Card(modifier = Modifier.fillMaxWidth().height(300.dp).padding(8.dp).clickable { restaurantPickListner(restaurant) }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp)) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp)
+            .padding(8.dp)
+            .clickable { restaurantPickListner(restaurant) },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
         Row(Modifier.fillMaxWidth()) {
 
-            Box(Modifier.fillMaxWidth(0.80f).fillMaxHeight(), contentAlignment = Alignment.BottomStart) {
-                supabase.getImage(restaurant.imageUrl, Modifier.fillMaxWidth().height(300.dp), ContentScale.FillBounds)
+            Box(
+                Modifier
+                    .fillMaxWidth(0.80f)
+                    .fillMaxHeight(), contentAlignment = Alignment.BottomStart
+            ) {
+                supabase.getImage(
+                    restaurant.imageUrl,
+                    Modifier
+                        .fillMaxWidth()
+                        .height(300.dp), ContentScale.FillBounds
+                )
 
                 Text(restaurant.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(10.dp))
             }
 
-            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.primary)
+            ) {
 
             }
         }
@@ -841,12 +1189,33 @@ fun HotelItemDisplay(restaurant: RestaurantInfo, restaurantPickListner: (Restaur
                     }
                     .size(30.dp), tint = Color.White)
 
-            Column(Modifier.constrainAs(textContainer) { bottom.linkTo(parent.bottom, 0.dp) }.background(Color.White).fillMaxWidth().height(130.dp)) {
-                Row(Modifier.padding(top = 15.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                Modifier
+                    .constrainAs(textContainer) { bottom.linkTo(parent.bottom, 0.dp) }
+                    .background(Color.White)
+                    .fillMaxWidth()
+                    .height(130.dp)) {
+                Row(
+                    Modifier
+                        .padding(top = 15.dp)
+                        .fillMaxWidth(), verticalAlignment = Alignment.CenterVertically
+                ) {
 
-                    Text(restaurant.name, maxLines = 2, modifier = Modifier.fillMaxWidth(0.80f).padding(start = 10.dp), style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        restaurant.name, maxLines = 2, modifier = Modifier
+                            .fillMaxWidth(0.80f)
+                            .padding(start = 10.dp), style = MaterialTheme.typography.headlineMedium
+                    )
 
-                    Text("${restaurant.rating} Star", Modifier.padding(5.dp).background(color = Color(0xFF00897B), MaterialTheme.shapes.extraSmall).padding(horizontal = 3.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "${restaurant.rating} Star",
+                        Modifier
+                            .padding(5.dp)
+                            .background(color = Color(0xFF00897B), MaterialTheme.shapes.extraSmall)
+                            .padding(horizontal = 3.dp, vertical = 2.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
 
                 }
                 Row(Modifier.padding(top = 10.dp, start = 10.dp)) { Text("Pure Veg");Text("South Indian");Text("Starts at") }

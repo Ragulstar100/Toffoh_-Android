@@ -13,6 +13,8 @@ import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase
 import com.manway.Toofoh.data.CustomerInfo
 import com.manway.Toofoh.ui.android.showErrorDialog
+import com.manway.Toofoh.ui.channel.RDialog
+import com.manway.Toofoh.ui.channel.dialogChannel
 import com.manway.Toofoh.ui.data.InternetListener
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -30,6 +32,7 @@ class CustomerViewModel : ViewModel() {
     var errorList by mutableStateOf((0..15).map { "none$it" })
 
 
+
     @SuppressLint("StaticFieldLeak")
     var context:Context?=null
 
@@ -41,7 +44,7 @@ class CustomerViewModel : ViewModel() {
                 context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
             }
             catch (e: Exception) {
-                context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
+                // context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
             }
             delay(250L)
         }
@@ -71,25 +74,26 @@ class CustomerViewModel : ViewModel() {
                         ).decodeList()
                     )
                 } catch (e: HttpRequestTimeoutException) {
-                    context?.let { showErrorDialog("Internet" ,"Check Your Internet Connection",it) }
+                    dialogChannel.send(RDialog("Internet", "Check Your Internet Connection"))
                 }
                 catch (e: Exception) {
-                    context?.let { showErrorDialog("CustomerFoodViewModel" ,e.message.toString(),it) }
+                    dialogChannel.send(RDialog("CommonFoodViewModel", e.message.toString()))
                 }
             }
         }
-        delay(250L)
 
 
     }
 
     init {
+
         viewModelScope.launch(Dispatchers.IO) {
 
             _errorList.collect {
                 errorList=it
             }
         }
+
         viewModelScope.launch(Dispatchers.IO) {
             _list.collect {
 
