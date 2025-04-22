@@ -13,7 +13,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.manway.Toofoh.data.FoodCategory
 import com.manway.Toofoh.data.OrderStatus
-import com.manway.Toofoh.distanecovered
 import com.manway.Toofoh.dp.CouldFunction
 import com.manway.Toofoh.dp.Table
 import com.manway.Toofoh.dp.supabase

@@ -86,7 +86,7 @@ enum class screen{
 }
 
 val currentRole = Role.Customer
-val distanecovered = 15000
+val distanecovereded= 15000
 class MainActivity : ComponentActivity() {
     private val googleAuthUiClient by lazy {
         GoogleSignInClient(context = this, oneTapClient = Identity.getSignInClient(applicationContext))
